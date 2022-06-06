@@ -2,6 +2,10 @@
 
 This is the official code for paper: PRANC: Pseudo RAndom Networks for Compacting deep models. 
 
+## Requirements:
+PyTorch>=1.8
+torchvision>=0.9
+
 ## Single GPU mode:
 
 The single gpu mode supports cifar10, cifar100, tiny imagenet with alexnet, lenet, convnet, resnet20, and resnet56. For running in Single GPU mode:
