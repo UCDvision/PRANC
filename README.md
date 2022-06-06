@@ -15,8 +15,9 @@ The single gpu mode supports cifar10, cifar100, tiny imagenet with alexnet, lene
 CUDA_VISIBLE_DEVICES=<Your GPU> python3 main_1gpu.py --k 10000\
   --model resnet20 --task cifar10 --dataset path/to/dataset/ \
   --batch_size 256 --window 500 --save_path path/to/save/alphas/\
-  --epoch 400 --lr 1e-3
+  --epoch 400 --lr 1e-3 --seed 0
 ```
+This command trains 10,000 alphas for resnet 20 on cifar10 for 400 epochs
 
 ## Multi GPU mode:
 
