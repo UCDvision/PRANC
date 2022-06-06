@@ -4,6 +4,7 @@ This is the official code for paper: PRANC: Pseudo RAndom Networks for Compactin
 
 ## Requirements:
 PyTorch>=1.8
+
 torchvision>=0.9
 
 ## Single GPU mode:
