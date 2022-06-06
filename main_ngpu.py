@@ -14,15 +14,15 @@ from torchvision.transforms import transforms
 
 
 parser = argparse.ArgumentParser(description='Arguments of program')
-parser.add_argument('--n', default=20000, type=int)
+parser.add_argument('--k', default=20000, type=int)
 parser.add_argument('--resume', action='store_true')
 parser.add_argument('--epoch', default=400, type=int)
 parser.add_argument('--lr', default=1e-2, type=float)
-parser.add_argument('--window', default=500, type=int)
+parser.add_argument('--window', default=500, type=int, help="The number of alphas in each coordinate descent (the M in paper)")
 parser.add_argument('--log-rate', default=1, type=int)
 parser.add_argument('--dataset', default="/datasets/imagenet100", type=str)
 args = parser.parse_args()
-n = args.n
+n = args.k
 max_acc = 0
 batch_size = 256
 epochs = args.epoch
