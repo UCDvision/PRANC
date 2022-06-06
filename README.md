@@ -12,7 +12,10 @@ torchvision>=0.9
 The single gpu mode supports cifar10, cifar100, tiny imagenet with alexnet, lenet, convnet, resnet20, and resnet56. For running in Single GPU mode:
 
 ```
-CUDA_VISIBLE_DEVICES=<Your GPU> python3 main_1gpu.py --k 10000 --model resnet20 --task cifar10 --dataset path/to/dataset/ --batch_size 256 --window 500 --save_path path/to/save/alphas/ --epoch 400 --lr 1e-3
+CUDA_VISIBLE_DEVICES=<Your GPU> python3 main_1gpu.py --k 10000\
+  --model resnet20 --task cifar10 --dataset path/to/dataset/ \
+  --batch_size 256 --window 500 --save_path path/to/save/alphas/\
+  --epoch 400 --lr 1e-3
 ```
 
 ## Multi GPU mode:
