@@ -17,7 +17,7 @@ CUDA_VISIBLE_DEVICES=<Your GPU> python3 main_1gpu.py --k 10000\
   --batch_size 256 --window 500 --save_path path/to/save/alphas/\
   --epoch 400 --lr 1e-3 --seed 0
 ```
-This command trains 10,000 alphas for resnet 20 on cifar10 for 400 epochs
+This command trains 10,000 alphas for resnet20 on cifar10 for 400 epochs. It will take less than 2 hours to train 10000 alphas for 400 epochs.
 
 ## Multi GPU mode:
 
