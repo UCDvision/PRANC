@@ -14,11 +14,11 @@ from torchvision.transforms import transforms
 parser = argparse.ArgumentParser(description='Arguments of program')
 parser.add_argument('--seed', default=0, type=int)
 parser.add_argument('--size', default=32, type=int)
-parser.add_argument('--n', default=10000, type=int)
+parser.add_argument('--k', default=10000, type=int)
 parser.add_argument('--resume', action='store_true')
 parser.add_argument('--epoch', default=1, type=int)
 parser.add_argument('--lr', default=1e-3, type=float)
-parser.add_argument('--window', default=500, type=int)
+parser.add_argument('--window', default=500, type=int, help="The number of alphas in each coordinate descent (the m in paper)")
 parser.add_argument('--log-rate', default=50, type=int)
 parser.add_argument('--batch_size', default=256, type=int)
 parser.add_argument('--dataset', default='../datasets', type=str)
@@ -27,7 +27,7 @@ parser.add_argument('--task', default='cifar10', type=str, help='options: cifar1
 parser.add_argument('--model', default='resnet20', type=str, help='options: lenet, alexnet, resnet20, resnet56, convnet')
 args = parser.parse_args()
 
-n = args.n
+n = args.k
 max_acc = 0
 test_interval = 1
 epochs = args.epoch
