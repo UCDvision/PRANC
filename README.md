@@ -27,3 +27,4 @@ The multi gpu mode is to support imagenet100 with larger networks such as ResNet
 CUDA_VISIBLE_DEVICES=<Your GPUs> python3 main_ngpu.py --k 20000 --window 500
 ```
 
+For evaluation, add ```--evaluate --resume --save_path path/to/previously/trained/alphas/``` to arguments. For saving the final model, add ```--save_model``` to your command.

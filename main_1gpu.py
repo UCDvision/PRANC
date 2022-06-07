@@ -10,12 +10,14 @@ from torch import nn
 from torch import optim
 from torchvision import datasets
 from torchvision.transforms import transforms
-
+#Arguments
 parser = argparse.ArgumentParser(description='Arguments of program')
 parser.add_argument('--seed', default=0, type=int)
 parser.add_argument('--size', default=32, type=int)
 parser.add_argument('--k', default=10000, type=int)
 parser.add_argument('--resume', action='store_true')
+parser.add_argument('--evaluate', action='store_true')
+parser.add_argument('--save_model', action='store_true')
 parser.add_argument('--epoch', default=1, type=int)
 parser.add_argument('--lr', default=1e-3, type=float)
 parser.add_argument('--window', default=500, type=int, help="The number of alphas in each coordinate descent (the m in paper)")
@@ -26,7 +28,7 @@ parser.add_argument('--save_path', default='./random_basis', type=str)
 parser.add_argument('--task', default='cifar10', type=str, help='options: cifar10, cifar100, tiny')
 parser.add_argument('--model', default='resnet20', type=str, help='options: lenet, alexnet, resnet20, resnet56, convnet')
 args = parser.parse_args()
-
+#basic setups
 n = args.k
 max_acc = 0
 test_interval = 1
@@ -35,7 +37,7 @@ window = args.window
 log_rate = args.log_rate
 batch_size = args.batch_size
 
-
+#task-specific setup
 if args.task == 'cifar10':
     args.depth = 3
     args.num_classes = 10
@@ -48,7 +50,7 @@ if args.task == 'tiny':
     args.depth = 4
     args.num_classes = 200
     args.size = 64
-
+#architecture-specific setup
 if args.model == 'resnet20':
     test_net = models.resnet20(num_classes = args.num_classes)
     train_net = models.resnet20(num_classes = args.num_classes)
@@ -72,8 +74,8 @@ if args.model == 'alexnet':
 CrossEntropy = nn.CrossEntropyLoss()
 test_net = nn.DataParallel(test_net.cuda())
 train_net = nn.DataParallel(train_net.cuda())
-alpha = torch.zeros(args.n, requires_grad=True, device="cuda:0")
-
+alpha = torch.zeros(args.k, requires_grad=True, device="cuda:0")
+#dataloaders and augmentations
 if args.task == 'cifar10':
     transform_train = transforms.Compose([
         transforms.RandomCrop(args.size, padding=4),
@@ -149,7 +151,7 @@ layer_cnt = len([p for p in train_net.parameters()])
 shapes = [list(p.shape) for p in train_net.parameters()]
 lengths = [p.flatten().shape[0] for p in train_net.parameters()]
 
-
+#evaluation function
 def test():
     with torch.no_grad():
         start_ind = 0
@@ -182,7 +184,7 @@ basis_net = torch.zeros(window, theta.shape[0]).cuda()
 dummy_net = [torch.zeros(p.shape).cuda() for p in train_net.parameters()]
 grads = torch.zeros(theta.shape, device='cuda:0')
 
-
+#initializing basis networks
 def fill_net(permute):
     bound = 1
     for j, p in enumerate(permute):
@@ -205,7 +207,7 @@ def fill_net(permute):
                 start_ind += lengths[i]
 
 
-saving_path = args.save_path + '_' + args.task + '_' + args.model + '_' + str(args.n)
+saving_path = args.save_path + '_' + args.task + '_' + args.model + '_' + str(args.k)
 if args.resume:
     with torch.no_grad():
         alpha = torch.load(saving_path + '/lr.pt').cuda()
@@ -222,7 +224,7 @@ if args.resume:
 else:
     with torch.no_grad():
         alpha[0] = 1.
-
+#calculating linear combination of basis networks and alphas
 def reset_lin_comb():
     global lin_comb_net
     lin_comb_net = torch.zeros(theta.shape).cuda()
@@ -236,6 +238,10 @@ def reset_lin_comb():
 
 reset_lin_comb()
 max_acc = test()
+#training epochs
+
+if args.evaluate:
+    epochs = 0 
 
 for e in range(epochs):
     random.shuffle(perm)
@@ -290,6 +296,8 @@ for e in range(epochs):
                 save_signature(saving_path)
         print("Accuracy:", acc, "Max_Accuracy:", max_acc)
 
+if args.save_model:
+    torch.save(train_net.state_dict(), "final_model.pt")
 
 print(max_acc)
 

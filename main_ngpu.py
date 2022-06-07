@@ -12,16 +12,19 @@ import torch.nn.functional as F
 from torchvision import datasets, models
 from torchvision.transforms import transforms
 
-
+#Arguments
 parser = argparse.ArgumentParser(description='Arguments of program')
 parser.add_argument('--k', default=20000, type=int)
 parser.add_argument('--resume', action='store_true')
+parser.add_argument('--evaluate', action='store_true')
+parser.add_argument('--save_model', action='store_true')
 parser.add_argument('--epoch', default=400, type=int)
 parser.add_argument('--lr', default=1e-2, type=float)
 parser.add_argument('--window', default=500, type=int, help="The number of alphas in each coordinate descent (the M in paper)")
 parser.add_argument('--log-rate', default=1, type=int)
 parser.add_argument('--dataset', default="/datasets/imagenet100", type=str)
 args = parser.parse_args()
+#Basic variable setups
 n = args.k
 max_acc = 0
 batch_size = 256
@@ -35,7 +38,7 @@ alpha = torch.zeros(n, requires_grad=True, device="cuda:0")
 if alpha.grad is None:
     alpha.grad = torch.zeros(alpha.shape, device=alpha.get_device())
 
-
+#input transformation
 transform_train = transforms.Compose([
     transforms.RandomResizedCrop(224),
     transforms.RandomHorizontalFlip(),
@@ -76,7 +79,7 @@ lengths = [p.flatten().shape[0] for p in train_net.parameters()]
 test_net = nn.DataParallel(models.resnet18(num_classes=100).cuda())
 test_net.eval()
 
-
+#evaluation function
 def test():
     test_cnt, test_total = 0, 0
     with torch.no_grad():
@@ -111,7 +114,7 @@ grads = torch.zeros(theta.shape).cuda()
 channels = torch.zeros(num_gpus, theta.shape[0]).to(0)
 fill_net_sem = threading.Semaphore(1)
 
-
+#intializing basis networks o a specific GPU
 def fill_net_(permute, gpu_ind):
     boundary = 1
     for j, p in enumerate(permute):
@@ -156,12 +159,12 @@ else:
     with torch.no_grad():
         alpha[0] = 1.
 
-
+#Basis network intializing Mapper
 def fill_nets(permute, gpu_ind):
     fill_net_(permute, gpu_ind)
     channels[gpu_ind] = torch.matmul(basis_net[gpu_ind][:len(permute)].T, alpha[permute].to(gpu_ind)).T.to(0)
 
-
+#Basis network intializing
 def fill_net(permute):
     interval = window // num_gpus
     threads = []
@@ -171,7 +174,7 @@ def fill_net(permute):
     for t in threads:
         t.join()
 
-
+#computing the linear combination of alpha and basis networks
 def reset_lin_comb():
     global lin_comb_net
     lin_comb_net = torch.zeros(theta.shape).cuda()
@@ -192,7 +195,7 @@ print("Current Accuracy:", max_acc)
 def single_gpu_matmul(gpu_ind, perm):
     channels[gpu_ind] = torch.matmul(basis_net[gpu_ind][:len(perm)].T, alpha[perm].to(gpu_ind)).T.to(0)
 
-
+#performing distributed matrix multiplication
 def distrib_matmul(perm):
     threads = []
     interval = window // num_gpus
@@ -205,6 +208,9 @@ def distrib_matmul(perm):
         t.join()
     return torch.sum(channels, dim=0)
 
+#Training loop
+if args.evaluate:
+    epochs = 0 
 
 for e in range(epochs):
     random.shuffle(perm)
@@ -256,5 +262,7 @@ for e in range(epochs):
             save_signature(saving_path, torch.cat(means), torch.cat(vars))
         print("Accuracy:", acc, "Max_Accuracy:", max_acc)
 
+if args.save_model:
+    torch.save(train_net.state_dict(), "final_model.pt")
 
 print(max_acc)
