@@ -6,13 +6,12 @@ from utils import save_signature, test, fill_net, reset_lin_comb
 
 max_acc = 0
 args = ArgumentParser()
-train_net, test_net = ModelFactory(args)
 CrossEntropy = nn.CrossEntropyLoss()
+train_net, test_net = ModelFactory(args)
+trainloader, testloader = DataLoader(args)
 test_net = nn.DataParallel(test_net.cuda())
 train_net = nn.DataParallel(train_net.cuda())
 alpha = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
-
-trainloader, testloader = DataLoader(args)
 
 with torch.no_grad():
     theta = torch.cat([p.flatten() for p in train_net.parameters()])
@@ -26,6 +25,7 @@ basis_net = torch.zeros(args.window, theta.shape[0]).cuda()
 dummy_net = [torch.zeros(p.shape).cuda() for p in train_net.parameters()]
 grads = torch.zeros(theta.shape, device='cuda:0')
 saving_path = args.save_path + '_' + args.task + '_' + args.model + '_' + str(args.num_alpha)
+
 if args.resume:
     with torch.no_grad():
         alpha = torch.load(saving_path + '/lr.pt').cuda()
@@ -45,8 +45,6 @@ else:
 
 lin_comb_net = reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_net, basis_net, lengths)
 max_acc = test(train_net, test_net, lin_comb_net, testloader, lengths, shapes)
-#training epochs
-
 if args.evaluate:
     epochs = 0 
 
