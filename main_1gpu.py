@@ -70,7 +70,7 @@ for e in range(args.epoch):
 
         loss = CrossEntropy(train_net(imgs), labels)
         if i % args.log_rate == 0:
-            print("Epoch:", e, "\tIteration:", i, "\tLoss:", loss.item())
+            print("Epoch:", e, "\tIteration:", i, "\tLoss:", round(loss.item(), 4))
         loss.backward()
         with torch.no_grad():
             start_ind = 0

@@ -41,7 +41,5 @@ if arguments['experiment']['mode'] == 'test' or arguments['experiment']['mode'] 
                 ' --task ' + str(arguments['experiment']['task']) + \
                 ' --model ' + str(arguments['experiment']['model_arch']) + \
                 ' --evaluate True' 
-
-print('CUDA_VISIBLE_DEVICES=' + str(arguments['gpus']) + ' python3 main_1gpu.py ' + args_str)
-
+                
 os.system('CUDA_VISIBLE_DEVICES=' + str(arguments['gpus']) + ' python3 main_1gpu.py ' + args_str )
