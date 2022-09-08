@@ -10,16 +10,16 @@ experiment:
   lr: 0.01
   epoch: 1
   batch_size: 256
-  resume: True
+  resume: true
   window_size: 500
   task: 'cifar10'
   model_arch: 'resnet20'
 
 dataset:
-  image_width: 32
+  image_width: 32 # set 32 for cifar, 64 tiny, 256 for imagenet
   dataset_path: './datasets'
 
 monitor:
   log_rate: 50
-  save_model: True
+  save_model: true
   save_path: './random_basis'

@@ -1,4 +1,8 @@
-
+import time
+import torch
+import random
+import torch.nn as nn
+import torch.optim as optim
 from dataloader import DataLoader
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
@@ -10,7 +14,6 @@ CrossEntropy = nn.CrossEntropyLoss()
 train_net, test_net = ModelFactory(args)
 trainloader, testloader = DataLoader(args)
 alpha = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
-
 with torch.no_grad():
     theta = torch.cat([p.flatten() for p in train_net.parameters()])
 net_optimizer = optim.SGD(train_net.parameters(), lr=1.)
@@ -23,8 +26,7 @@ basis_net = torch.zeros(args.window, theta.shape[0]).cuda()
 dummy_net = [torch.zeros(p.shape).cuda() for p in train_net.parameters()]
 grads = torch.zeros(theta.shape, device='cuda:0')
 saving_path = args.save_path + '_' + args.task + '_' + args.model + '_' + str(args.num_alpha)
-
-if args.resume:
+if args.resume == 'True':
     with torch.no_grad():
         alpha = torch.load(saving_path + '/lr.pt').cuda()
         if 'resnet' in args.model:
@@ -69,7 +71,7 @@ for e in range(args.epoch):
 
         loss = CrossEntropy(train_net(imgs), labels)
         if i % args.log_rate == 0:
-            print("Epoch:", e, "\tIteration:", i, "\tLoss:", round(loss.item(), 4), "\tTime:", int((time.time() - t1) * 1000), 'ms')
+            print("Epoch:", e, "\tIteration:", i, "\tLoss:", round(loss.item(), 4), "\tTime:", round((time.time() - t1) * 1000, 2), 'ms')
         loss.backward()
         with torch.no_grad():
             start_ind = 0
@@ -85,6 +87,7 @@ for e in range(args.epoch):
         lin_comb_net.copy_(rest_of_net + torch.matmul(basis_net.T, alpha[idx]).T)
 
     lin_comb_net = reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_net, basis_net, lengths)
+    t1 = time.time()
     acc = test(train_net, test_net, lin_comb_net, testloader, lengths, shapes)
     if max_acc <= acc:
         max_acc = acc
@@ -98,7 +101,7 @@ for e in range(args.epoch):
             save_signature(args, alpha, saving_path, torch.cat(means), torch.cat(vars))
         else:
             save_signature(args, alpha, saving_path)
-        print("Accuracy:", acc, "Max_Accuracy:", max_acc)
+        print("Acc:", round(acc, 4), "\tMax Acc:", round(max_acc, 4), "\tTime:", round(time.time() - t1, 3), 's')
 
 if args.save_model:
     torch.save(train_net.state_dict(), "final_model.pt")
