@@ -1,4 +1,5 @@
 import models
+import torch.nn as nn
 
 def ModelFactory(args):
     if args.task == 'cifar10':
@@ -34,4 +35,4 @@ def ModelFactory(args):
         test_net = models.AlexNet(num_classes=args.num_classes)
         train_net = models.AlexNet(num_classes=args.num_classes)
     
-    return train_net, test_net
+    return nn.DataParallel(train_net.cuda()), nn.DataParallel(test_net.cuda())

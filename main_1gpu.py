@@ -1,4 +1,4 @@
-import torch.nn as nn
+
 from dataloader import DataLoader
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
@@ -9,8 +9,6 @@ args = ArgumentParser()
 CrossEntropy = nn.CrossEntropyLoss()
 train_net, test_net = ModelFactory(args)
 trainloader, testloader = DataLoader(args)
-test_net = nn.DataParallel(test_net.cuda())
-train_net = nn.DataParallel(train_net.cuda())
 alpha = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
 
 with torch.no_grad():
@@ -56,6 +54,7 @@ for e in range(args.epoch):
         rest_of_net = lin_comb_net - torch.matmul(basis_net.T, alpha[idx]).T
     optimizer = torch.optim.SGD([alpha], lr=args.lr, momentum=.9, weight_decay=1e-4)
     for i, data in enumerate(trainloader):
+        t1 = time.time()
         optimizer.zero_grad()
         net_optimizer.zero_grad()
         imgs, labels = data
@@ -70,7 +69,7 @@ for e in range(args.epoch):
 
         loss = CrossEntropy(train_net(imgs), labels)
         if i % args.log_rate == 0:
-            print("Epoch:", e, "\tIteration:", i, "\tLoss:", round(loss.item(), 4))
+            print("Epoch:", e, "\tIteration:", i, "\tLoss:", round(loss.item(), 4), "\tTime:", int((time.time() - t1) * 1000), 'ms')
         loss.backward()
         with torch.no_grad():
             start_ind = 0
