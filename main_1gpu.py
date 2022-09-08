@@ -11,11 +11,8 @@ from arguments import ArgumentParser
 from modelfactory import ModelFactory
 from utils import save_signature, test, fill_net, reset_lin_comb
 
-#Arguments Loader
 args = ArgumentParser()
 max_acc = 0
-
-#Generate Networks
 train_net, test_net = ModelFactory(args)
 CrossEntropy = nn.CrossEntropyLoss()
 test_net = nn.DataParallel(test_net.cuda())
