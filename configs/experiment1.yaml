@@ -1,0 +1,25 @@
+name: "Resnet20 with Cifar-10 coordinate descent with 10,000 alpha"
+gpus: [0]
+
+pranc:
+  seed: 0 
+  num_alpha: 10000
+
+experiment:
+  mode: 'train'  
+  lr: 0.01
+  epoch: 1
+  batch_size: 256
+  resume: True
+  window_size: 500
+  task: 'cifar10'
+  model_arch: 'resnet20'
+
+dataset:
+  image_width: 32
+  dataset_path: './datasets'
+
+monitor:
+  log_rate: 50
+  save_model: True
+  save_path: './random_basis'

@@ -1,18 +1,11 @@
-import os
-import math
-import time
-import torch
-import random
-from torch import nn
-from torch import optim
-from torchvision import datasets
+import torch.nn as nn
 from dataloader import DataLoader
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
 from utils import save_signature, test, fill_net, reset_lin_comb
 
-args = ArgumentParser()
 max_acc = 0
+args = ArgumentParser()
 train_net, test_net = ModelFactory(args)
 CrossEntropy = nn.CrossEntropyLoss()
 test_net = nn.DataParallel(test_net.cuda())
