@@ -1,7 +1,9 @@
 import os
 import math
 import torch
+import torch.optim 
 import torch.nn as nn
+from watchdog import WatchDog
 
 
 def save_signature(args, alpha, dirname, mean = None, var = None):
@@ -11,35 +13,6 @@ def save_signature(args, alpha, dirname, mean = None, var = None):
     if 'resnet' in args.model:
         torch.save(mean, dirname + '/means.pt')
         torch.save(var, dirname + '/vars.pt')
-
-
-def test(train_net, test_net, lin_comb_net, testloader, lengths, shapes):
-    with torch.no_grad():
-        start_ind = 0
-        for j, p in enumerate(test_net.parameters()):
-            p.copy_(lin_comb_net[start_ind:start_ind + lengths[j]].view(shapes[j]))
-            start_ind += lengths[j]
-        for p1, p2 in zip(test_net.modules(), train_net.modules()):
-            if isinstance(p1, nn.BatchNorm2d):
-                p1.running_mean.copy_(p2.running_mean)
-                p1.running_var.copy_(p2.running_var)
-
-    cnt = 0
-    total = 0
-
-    for i, data in enumerate(testloader, 0):
-        inputs, labels = data
-        outputs = test_net(inputs.cuda())
-        labels = labels.cuda()
-        outputs = torch.argmax(outputs, dim=1)
-        for i in range(outputs.shape[0]):
-            if labels[i] == outputs[i]:
-                cnt += 1
-            total += 1
-
-    return (cnt / total) * 100
-
-
 
 def fill_net(args, permute, layer_cnt, shapes, dummy_net, basis_net, lengths):
     bound = 1
@@ -72,3 +45,63 @@ def reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_ne
         start = end
         end = min(end + args.window, args.num_alpha)
     return lin_comb_net
+
+def init_alpha(args):
+    alp = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
+    with torch.no_grad():
+        alp[0] = 1.
+    return alp
+
+def loss_func(args):
+    return nn.CrossEntropyLoss()
+
+def init_net(args, train_net):
+    if args.seed is not None:
+        torch.cuda.manual_seed(args.seed)
+    for p in train_net.modules():
+        if hasattr(p, 'reset_parameters'):
+            p.reset_parameters()
+    return train_net
+
+def get_optimizer(args, params):
+    return torch.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=1e-4)
+
+def normal_train_single_epoch(args, epoch, train_net, trainloader, criteria, optimizer):
+    train_net.train()
+    train_watchdog = WatchDog()
+    for batch_idx, data in enumerate(trainloader):
+        train_watchdog.start()
+        optimizer.zero_grad()
+        imgs, labels = data
+        imgs = imgs.cuda()
+        labels = labels.cuda()
+        loss = criteria(train_net(imgs), labels)
+        loss.backward()
+        optimizer.step()
+        train_watchdog.stop()
+        if batch_idx % args.log_rate == 0:
+            print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
+
+def save_model(args, train_net):
+    if os.path.isdir(args.task_id) is False:
+        os.mkdir(args.task_id)
+    torch.save(train_net.state_dict(), args.task_id + '/' + args.save_model)
+
+def load_model(args):
+    return torch.load(args.resume)
+
+def test(args, train_net, testloader):
+    train_net.eval()
+    cnt = 0
+    total = 0
+    for i, data in enumerate(testloader, 0):
+        inputs, labels = data
+        outputs = train_net(inputs.cuda())
+        labels = labels.cuda()
+        outputs = torch.argmax(outputs, dim=1)
+        for i in range(outputs.shape[0]):
+            if labels[i] == outputs[i]:
+                cnt += 1
+            total += 1
+
+    return (cnt / total) * 100
