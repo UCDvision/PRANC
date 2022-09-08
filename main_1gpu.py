@@ -9,7 +9,7 @@ from torchvision import datasets
 from dataloader import DataLoader
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
-from torchvision.transforms import transforms
+from utils import save_signature, test, fill_net, reset_lin_comb
 
 #Arguments Loader
 args = ArgumentParser()
@@ -22,17 +22,7 @@ test_net = nn.DataParallel(test_net.cuda())
 train_net = nn.DataParallel(train_net.cuda())
 alpha = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
 
-#dataloaders and augmentations
 trainloader, testloader = DataLoader(args)
-
-def save_signature(dirname, mean = None, var = None):
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    torch.save(alpha, dirname + '/lr.pt')
-    if 'resnet' in args.model:
-        torch.save(mean, dirname + '/means.pt')
-        torch.save(var, dirname + '/vars.pt')
-
 
 with torch.no_grad():
     theta = torch.cat([p.flatten() for p in train_net.parameters()])
@@ -41,62 +31,10 @@ lin_comb_net = torch.zeros(theta.shape).cuda()
 layer_cnt = len([p for p in train_net.parameters()])
 shapes = [list(p.shape) for p in train_net.parameters()]
 lengths = [p.flatten().shape[0] for p in train_net.parameters()]
-
-#evaluation function
-def test():
-    with torch.no_grad():
-        start_ind = 0
-        for j, p in enumerate(test_net.parameters()):
-            p.copy_(lin_comb_net[start_ind:start_ind + lengths[j]].view(shapes[j]))
-            start_ind += lengths[j]
-        for p1, p2 in zip(test_net.modules(), train_net.modules()):
-            if isinstance(p1, nn.BatchNorm2d):
-                p1.running_mean.copy_(p2.running_mean)
-                p1.running_var.copy_(p2.running_var)
-
-    cnt = 0
-    total = 0
-
-    for i, data in enumerate(testloader, 0):
-        inputs, labels = data
-        outputs = test_net(inputs.cuda())
-        labels = labels.cuda()
-        outputs = torch.argmax(outputs, dim=1)
-        for i in range(outputs.shape[0]):
-            if labels[i] == outputs[i]:
-                cnt += 1
-            total += 1
-
-    return (cnt / total) * 100
-
 perm = [i for i in range(args.num_alpha)]
 basis_net = torch.zeros(args.window, theta.shape[0]).cuda()
 dummy_net = [torch.zeros(p.shape).cuda() for p in train_net.parameters()]
 grads = torch.zeros(theta.shape, device='cuda:0')
-
-#initializing basis networks
-def fill_net(permute):
-    bound = 1
-    for j, p in enumerate(permute):
-        torch.cuda.manual_seed_all(p + args.num_alpha * args.seed)
-        start_ind = 0
-        for i in range(layer_cnt):
-            if len(shapes[i]) > 2:
-                torch.nn.init.kaiming_uniform_(dummy_net[i], a=math.sqrt(5))
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-                bound = 1 / math.sqrt(shapes[i][1] * shapes[i][2] * shapes[i][3])
-            if len(shapes[i]) == 2:
-                bound = 1 / math.sqrt(shapes[i][1])
-                torch.nn.init.uniform_(dummy_net[i], -bound, bound)
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-            if len(shapes[i]) < 2:
-                torch.nn.init.uniform_(dummy_net[i], -bound, bound)
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-
-
 saving_path = args.save_path + '_' + args.task + '_' + args.model + '_' + str(args.num_alpha)
 if args.resume:
     with torch.no_grad():
@@ -114,20 +52,9 @@ if args.resume:
 else:
     with torch.no_grad():
         alpha[0] = 1.
-#calculating linear combination of basis networks and alphas
-def reset_lin_comb():
-    global lin_comb_net
-    lin_comb_net = torch.zeros(theta.shape).cuda()
-    start, end = 0, args.window
-    while start < args.num_alpha:
-        fill_net(range(start, end))
-        with torch.no_grad():
-            lin_comb_net += torch.matmul(basis_net.T, alpha[start:end]).T
-        start = end
-        end = min(end + args.window, args.num_alpha)
 
-reset_lin_comb()
-max_acc = test()
+lin_comb_net = reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_net, basis_net, lengths)
+max_acc = test(train_net, test_net, lin_comb_net, testloader, lengths, shapes)
 #training epochs
 
 if args.evaluate:
@@ -136,7 +63,7 @@ if args.evaluate:
 for e in range(args.epoch):
     random.shuffle(perm)
     idx = perm[:args.window]
-    fill_net(idx)
+    fill_net(args, idx, layer_cnt, shapes, dummy_net, basis_net, lengths)
     with torch.no_grad():
         rest_of_net = lin_comb_net - torch.matmul(basis_net.T, alpha[idx]).T
     optimizer = torch.optim.SGD([alpha], lr=args.lr, momentum=.9, weight_decay=1e-4)
@@ -170,8 +97,8 @@ for e in range(args.epoch):
     with torch.no_grad():
         lin_comb_net.copy_(rest_of_net + torch.matmul(basis_net.T, alpha[idx]).T)
 
-    reset_lin_comb()
-    acc = test()
+    lin_comb_net = reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_net, basis_net, lengths)
+    acc = test(train_net, test_net, lin_comb_net, testloader, lengths, shapes)
     if max_acc <= acc:
         max_acc = acc
         means = []
@@ -181,9 +108,9 @@ for e in range(args.epoch):
                 means.append(p.running_mean)
                 vars.append(p.running_var)
         if 'resnet' in args.model:
-            save_signature(saving_path, torch.cat(means), torch.cat(vars))
+            save_signature(args, alpha, saving_path, torch.cat(means), torch.cat(vars))
         else:
-            save_signature(saving_path)
+            save_signature(args, alpha, saving_path)
         print("Accuracy:", acc, "Max_Accuracy:", max_acc)
 
 if args.save_model:
