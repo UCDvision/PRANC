@@ -2,3 +2,4 @@ __pycache__/
 datasets/
 random_basis_*/
 final_model.pt
+R20_CIFAR10_NORMAL/

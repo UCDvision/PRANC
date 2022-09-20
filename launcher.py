@@ -16,11 +16,14 @@ args_str += ' --img-width ' + str(arguments['dataset']['image_width'])
 args_str += ' --dataset ' + str(arguments['dataset']['dataset_path']) 
 
 if arguments['experiment']['method'] == 'pranc':
+    arguments['experiment']['lr'] = 1.
     args_str += ' --seed ' + str(arguments['pranc']['seed'])
-    args_str += ' --num_alpha ' + str(arguments['pranc']['num_alpha'])
     args_str += ' --window ' + str(arguments['pranc']['window_size'])
+    args_str += ' --num_alpha ' + str(arguments['pranc']['num_alpha'])
     if arguments['experiment']['mode'] == 'train':
+        args_str += ' --pranc_lr ' + str(arguments['pranc']['lr'])
         args_str += ' --save_path ' + str(arguments['monitor']['save_path'])
+        
     
 if arguments['experiment']['mode'] == 'train':
     args_str += ' --lr ' + str(arguments['experiment']['lr'])
@@ -32,8 +35,8 @@ if arguments['experiment']['mode'] == 'train':
 elif arguments['experiment']['mode'] == 'test':
     args_str += ' --lr 0'
     args_str += ' --epoch 0' 
-    args_str += ' --resume ' + str(arguments['experiment']['load_model'])
     args_str += ' --batch_size 100' 
+    args_str += ' --resume ' + str(arguments['experiment']['load_model'])
 
 if 'resume' in arguments['experiment'].keys():
     args_str += ' --resume ' + str(arguments['experiment']['resume']) 

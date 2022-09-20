@@ -2,18 +2,19 @@ name: "Normal Training of CIFAR-10 with Resnet-20"
 id: "R20_CIFAR10_NORMAL"
 gpus: [0]
 
-# pranc:
-#   seed: 0 
-#   num_alpha: 10000
-#   window_size: 500  
+pranc:
+  seed: 0 
+  num_alpha: 10000
+  window_size: 10000  
+  lr: 0.0005
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'normal'    #[normal, pranc]
-  lr: 0.01
-  epoch: 3
+  method: 'pranc'    #[normal, pranc]
+  lr: 0.005
+  epoch: 51
   batch_size: 256   #optional for testing
-  resume: 'R20_CIFAR10_NORMAL/best_model.pt'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
+  resume: 'R20_CIFAR10_NORMAL/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
   # load_model: 'R20_CIFAR10_NORMAL/best_model.pt' #for testing 
   task: 'cifar10'
   model_arch: 'resnet20'
@@ -25,4 +26,4 @@ dataset:
 monitor:  #optional for testing
   log_rate: 50
   save_model: 'best_model.pt' 
-  # save_path: './pranc'
+  save_path: 'pranc'

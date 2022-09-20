@@ -1,9 +1,9 @@
-import time
+import torch
 from watchdog import WatchDog
 from dataloader import DataLoader
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
-from utils import test, init_alpha, loss_func, init_net, get_optimizer, save_model, load_model, normal_train_single_epoch
+from utils import test, loss_func, init_net, get_optimizer, save_model, load_model, save_signature, normal_train_single_epoch, pranc_train_single_epoch, pranc_init
 
 max_acc = 0
 args = ArgumentParser()
@@ -33,4 +33,20 @@ if args.method == 'normal':
     print("FINAL TEST RESULT:\tAcc:", round(acc, 3))
 
 if args.method == 'pranc':
-    alpha = init_alpha(args)
+    alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(args, train_net)
+    alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
+    net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
+    if args.resume is not None:
+        max_acc = test(args, train_net, testloader)
+    for e in range(args.epoch):
+        pranc_train_single_epoch(args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)
+        if e % 10 == 0:
+            test_watchdog.start()
+            acc = test(args, train_net, testloader)
+            test_watchdog.stop()
+            print("TEST RESULT:\tAcc:", round(acc, 3), "\tBest Acc:", round(max_acc,3), "\tTime:", test_watchdog.get_time_in_sec(), 'seconds')
+            if acc > max_acc:
+                save_model(args, train_net)
+                save_signature(args, alpha, train_net)
+                max_acc = acc
+           
