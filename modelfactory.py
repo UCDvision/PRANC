@@ -18,7 +18,6 @@ def ModelFactory(args):
         args.depth = 4
         args.num_classes = 200
         args.size = 64
-    #architecture-specific setup
 
     if args.model == 'resnet20':
         train_net = models.resnet20(num_classes = args.num_classes)

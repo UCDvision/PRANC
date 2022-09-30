@@ -65,7 +65,11 @@ def init_alpha(args):
     return alp
 
 def loss_func(args):
-    return nn.CrossEntropyLoss()
+    if args.loss == 'mse':
+        return nn.MSELoss()
+    if args.loss == 'cross-entropy':
+        return nn.CrossEntropyLoss()
+    
 
 def init_net(args, train_net):
     if args.seed is not None:

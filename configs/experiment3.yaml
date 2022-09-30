@@ -6,16 +6,16 @@ gpus: [2]
 #   seed: 0 
 #   num_alpha: 300
 #   window_size: 300  
-#   lr: 0.001
 
 experiment:
-  mode: 'test'   #[train, test]
+  mode: 'train'   #[train, test]
   method: 'normal'    #[normal, pranc]
+  loss: "cross-entropy"   #[cross-entropy, ]
   lr: 0.001
   epoch: 201
   batch_size: 256   #optional for testing
   # resume: 'LeNet_MNIST_PRANC/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
-  load_model: 'LeNet_MNIST_NORMAL/best_model.pt' #for testing 
+  # load_model: 'LeNet_MNIST_NORMAL/best_model.pt' #for testing 
   task: 'mnist'
   model_arch: 'lenet'
 

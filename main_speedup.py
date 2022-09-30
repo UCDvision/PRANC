@@ -30,7 +30,7 @@ if args.method == 'normal':
             save_model(args, train_net)
     
     acc = test(args, train_net, testloader)
-    print("FINAL TEST RESULT:\tAcc:", round(acc, 3))
+    print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
 if args.method == 'pranc':
     alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(args, train_net)
@@ -40,7 +40,7 @@ if args.method == 'pranc':
         max_acc = test(args, train_net, testloader)
     for e in range(args.epoch):
         pranc_train_single_epoch(args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)
-        if e % 10 == 0:
+        if e % 10 == 9:
             test_watchdog.start()
             acc = test(args, train_net, testloader)
             test_watchdog.stop()
@@ -50,4 +50,4 @@ if args.method == 'pranc':
                 save_signature(args, alpha, train_net)
                 max_acc = acc
     acc = test(args, train_net, testloader)
-    print("FINAL TEST RESULT:\tAcc:", round(acc, 3))
+    print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))

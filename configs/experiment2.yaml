@@ -6,15 +6,15 @@ pranc:
   seed: 0 
   num_alpha: 400
   window_size: 400  
-  lr: 0.00001
 
 experiment:
   mode: 'train'   #[train, test]
   method: 'pranc'    #[normal, pranc]
+  loss: "cross-entropy"   #[cross-entropy, ]
   lr: 0.005
   epoch: 201
   batch_size: 256   #optional for testing
-  resume: 'LeNet_MNIST_PRANC/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
+  # resume: 'LeNet_MNIST_PRANC/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
   # load_model: 'LeNet_MNIST_PRANC/pranc' #for testing 
   task: 'mnist'
   model_arch: 'lenet'
