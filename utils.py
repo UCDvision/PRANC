@@ -70,7 +70,6 @@ def loss_func(args):
     if args.loss == 'cross-entropy':
         return nn.CrossEntropyLoss()
     
-
 def init_net(args, train_net):
     if args.seed is not None:
         print("Initializing network with seed:", args.seed)
@@ -83,10 +82,16 @@ def init_net(args, train_net):
     return train_net
 
 def get_optimizer(args, params, for_what='network'):
+    lr = 0
     if for_what == 'network':
-        return torch.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=1e-4)
+        lr = args.lr
     if for_what == 'pranc':
-        return torch.optim.SGD(params, lr=args.pranc_lr, momentum=.9, weight_decay=1e-4)
+        lr = args.pranc_lr
+    
+    if args.optimizer == 'sgd':
+        return torch.optim.SGD(params, lr=lr, momentum=.9, weight_decay=1e-4)
+    if args.optimizer == 'adam':
+        return torch.optim.Adam(params, lr=lr)
 
 def normal_train_single_epoch(args, epoch, train_net, trainloader, criteria, optimizer):
     train_net.train()

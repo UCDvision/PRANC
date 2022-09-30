@@ -13,6 +13,7 @@ def ArgumentParser():
     parser.add_argument('--save_path', default=None, type=str, help='Path to save the alphas')
     parser.add_argument('--save_model', default=None, type=str, help='Path to save the model')
     parser.add_argument('--pranc_lr', default=None, type=float, help='Learning rate for alpha')
+    parser.add_argument('--optimizer', default=None, type=str, help='Optimizer of the network')
     parser.add_argument('--img-width', required=True, type=int, help='Width of the input image')
     parser.add_argument('--loss', required=True, type=str, help='Loss function for the experiment')
     parser.add_argument('--batch_size', required=True, type=int, help='Data batch size for training')

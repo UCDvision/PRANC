@@ -29,6 +29,7 @@ if arguments['experiment']['method'] == 'pranc':
 if arguments['experiment']['mode'] == 'train':
     args_str += ' --lr ' + str(arguments['experiment']['lr'])
     args_str += ' --epoch ' + str(arguments['experiment']['epoch'])
+    args_str += ' --optimizer ' + arguments['experiment']['optimizer']
     args_str += ' --log-rate ' + str(arguments['monitor']['log_rate']) 
     args_str += ' --save_model ' + str(arguments['monitor']['save_model'])
     args_str += ' --batch_size ' + str(arguments['experiment']['batch_size'])

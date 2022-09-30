@@ -34,8 +34,9 @@ if args.method == 'normal':
 
 if args.method == 'pranc':
     alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(args, train_net)
-    alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
-    net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
+    if args.lr > 0:
+        alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
+        net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
     if args.resume is not None:
         max_acc = test(args, train_net, testloader)
     for e in range(args.epoch):
