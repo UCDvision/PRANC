@@ -112,7 +112,7 @@ def fill_basis_mat(args, train_net):
     cnt_param = sum([p.flatten().shape[0] for p in train_net.parameters()])
     this_device = 'cuda:0'
     basis_mat = torch.zeros(args.window, cnt_param, device=this_device)
-    print("Initializing Basis Matrix")
+    print("Initializing Basis Matrix:", list(basis_mat.shape))
     for i in tqdm(range(args.num_alpha)):
         torch.cuda.manual_seed(i)
         start_ind = 0

@@ -1,12 +1,12 @@
-name: "PRANC Training of CIFAR-10 with Resnet-20 with 1,000 alphas"
-id: "R20_CIFAR_PRANC"
+name: "PRANC Training of CIFAR-10 with Resnet-56 with 6,000 alphas"
+id: "R56_CIFAR_PRANC"
 gpus: [1]
 
 pranc:
   seed: 0 
-  num_alpha: 1000
-  window_size: 1000  
-  lr: 0.001
+  num_alpha: 6000
+  window_size: 6000  
+  lr: 0.00001
 
 experiment:
   mode: 'train'   #[train, test]
@@ -14,10 +14,10 @@ experiment:
   lr: 0.005
   epoch: 201
   batch_size: 256   #optional for testing
-  # resume: 'R20_CIFAR_PRANC/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
+  resume: 'R56_CIFAR_PRANC/pranc'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
   # load_model: 'R20_CIFAR_PRANC/pranc' #for testing 
   task: 'cifar10'
-  model_arch: 'resnet20'
+  model_arch: 'resnet56'
 
 dataset:
   image_width: 32 # set 32 for cifar, 64 tiny, 256 for imagenet

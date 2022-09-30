@@ -34,6 +34,7 @@ if arguments['experiment']['mode'] == 'train':
 
 elif arguments['experiment']['mode'] == 'test':
     args_str += ' --lr 0'
+    args_str += ' --pranc_lr 0'
     args_str += ' --epoch 0' 
     args_str += ' --batch_size 100' 
     args_str += ' --resume ' + str(arguments['experiment']['load_model'])

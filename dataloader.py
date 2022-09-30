@@ -1,8 +1,19 @@
+from cgi import test
+import os
 import torch
 import torchvision
+from torchvision import datasets, models
 from torchvision.transforms import transforms
 
 def DataLoader(args): 
+    if args.task == 'mnist':
+        trainset = datasets.MNIST(args.dataset, download=True, train=True,transform=transforms.Compose( [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]))
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,  shuffle=True)
+        
+        testset = datasets.MNIST(args.dataset, download=True, train=False,transform=transforms.Compose( [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]))
+        testloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,  shuffle=True)
+        return trainloader, testloader
+
     if args.task == 'cifar10':
         transform_train = transforms.Compose([
             transforms.RandomCrop(args.img_width, padding=4),
@@ -23,7 +34,6 @@ def DataLoader(args):
         testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=32)
         return trainloader, testloader
 
-
     if args.task == 'cifar100':
         transform_train = transforms.Compose([
             transforms.RandomCrop(args.img_width, padding=4),
@@ -43,7 +53,6 @@ def DataLoader(args):
         testset = torchvision.datasets.CIFAR100(root=args.dataset, train=False, download=True, transform=transform_test)
         testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=32)
         return trainloader, testloader
-
 
     if args.task == 'tiny':
         transform_train = transforms.Compose([

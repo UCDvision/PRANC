@@ -49,4 +49,5 @@ if args.method == 'pranc':
                 save_model(args, train_net)
                 save_signature(args, alpha, train_net)
                 max_acc = acc
-           
+    acc = test(args, train_net, testloader)
+    print("FINAL TEST RESULT:\tAcc:", round(acc, 3))
