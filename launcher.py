@@ -23,8 +23,14 @@ if arguments['experiment']['method'] == 'pranc':
         args_str += ' --save_path ' + str(arguments['monitor']['save_path'])
     arguments['experiment']['lr'] = 1.
     args_str += ' --seed ' + str(arguments['pranc']['seed'])
-    args_str += ' --window ' + str(arguments['pranc']['window_size'])
+    # args_str += ' --window ' + str(arguments['pranc']['window_size'])
     args_str += ' --num_alpha ' + str(arguments['pranc']['num_alpha'])
+
+if arguments['experiment']['scheduler'] != 'none':
+    args_str += ' --scheduler ' + arguments['experiment']['scheduler']
+    if arguments['experiment']['scheduler'] == 'step':
+        args_str += ' --scheduler_step ' + str(arguments['experiment']['step'])
+    args_str += ' --scheduler_gamma ' + str(arguments['experiment']['gamma'])
 
 if 'weight_decay' in arguments['experiment'].keys():
     args_str += ' --weight-decay ' + str(arguments['experiment']['weight_decay'])

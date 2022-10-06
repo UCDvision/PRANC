@@ -9,10 +9,18 @@ from watchdog import WatchDog
 import torch.distributed as dist
 
 
-def save_signature(args, alpha, train_net):
+def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):
+    length = args.num_alpha // args.world_size
+    start = length * gpu_ind
+    end = start + length
+    with torch.no_grad():
+        shared_alpha[start:end].copy_(alpha)
+    dist.barrier()
+    if gpu_ind != 0:
+        return
     if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
         os.mkdir(args.task_id + '/' + args.save_path)
-    torch.save(alpha, args.task_id + '/' + args.save_path + '/alpha.pt')
+    torch.save(shared_alpha, args.task_id + '/' + args.save_path + '/alpha.pt')
     if 'resnet' in args.model:
         mean = []
         var = []
@@ -23,45 +31,15 @@ def save_signature(args, alpha, train_net):
         torch.save(torch.cat(mean), args.task_id + '/' + args.save_path +  '/means.pt')
         torch.save(torch.cat(var), args.task_id + '/' + args.save_path +  '/vars.pt')
 
-def fill_net(args, permute, layer_cnt, shapes, dummy_net, basis_net, lengths):
-    bound = 1
-    for j, p in enumerate(permute):
-        torch.cuda.manual_seed_all(p + args.num_alpha * args.seed)
-        start_ind = 0
-        for i in range(layer_cnt):
-            if len(shapes[i]) > 2:
-                torch.nn.init.kaiming_uniform_(dummy_net[i], a=math.sqrt(5))
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-                bound = 1 / math.sqrt(shapes[i][1] * shapes[i][2] * shapes[i][3])
-            if len(shapes[i]) == 2:
-                bound = 1 / math.sqrt(shapes[i][1])
-                torch.nn.init.uniform_(dummy_net[i], -bound, bound)
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-            if len(shapes[i]) < 2:
-                torch.nn.init.uniform_(dummy_net[i], -bound, bound)
-                basis_net[j][start_ind:start_ind + lengths[i]] = dummy_net[i].flatten()
-                start_ind += lengths[i]
-
-def reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_net, basis_net, lengths):
-    lin_comb_net = torch.zeros(theta.shape).cuda()
-    start, end = 0, args.window
-    while start < args.num_alpha:
-        fill_net(args, range(start, end), layer_cnt, shapes, dummy_net, basis_net, lengths)
-        with torch.no_grad():
-            lin_comb_net += torch.matmul(basis_net.T, alpha[start:end]).T
-        start = end
-        end = min(end + args.window, args.num_alpha)
-    return lin_comb_net
-
 def init_alpha(gpu_ind, args):
-    print("Initializing Alpha")
+    if gpu_ind == 0:
+        print("Initializing Alpha")
     length = args.num_alpha // args.world_size
     start = length * gpu_ind
     end = start + length
     if args.resume is not None:
         alp = torch.load(args.resume + '/alpha.pt')[start:end]
+        alp = alp.to(gpu_ind)
     else:
         alp = torch.zeros(length, requires_grad=True, device=torch.device(gpu_ind))
         with torch.no_grad():
@@ -75,12 +53,14 @@ def loss_func(args):
     if args.loss == 'cross-entropy':
         return nn.CrossEntropyLoss()
     
-def init_net(args, train_net):
+def init_net(gpu_ind, args, train_net):
     if args.seed is not None:
-        print("Initializing network with seed:", args.seed)
+        if gpu_ind == 0:
+            print("Initializing network with seed:", args.seed)
         torch.cuda.manual_seed(args.seed)
     else:
-        print("Initializing network with no seed")
+        if gpu_ind == 0:
+            print("Initializing network with no seed")
     for p in train_net.modules():
         if hasattr(p, 'reset_parameters'):
             p.reset_parameters()
@@ -98,6 +78,15 @@ def get_optimizer(args, params, for_what='network'):
     if args.optimizer == 'adam':
         return torch.optim.Adam(params, lr=lr)
 
+def get_scheduler(args, optimzer):
+    if args.scheduler == 'none':
+        return torch.optim.lr_scheduler.StepLR(optimzer, 1,1)
+    if args.scheduler == 'step':
+        return torch.optim.lr_scheduler.StepLR(optimzer, args.scheduler_step, args.scheduler_gamma)
+    if args.scheduler == 'exponential':
+        return torch.optim.lr_scheduler.ExponentialLR(optimzer, args.scheduler_gamma)
+
+
 def normal_train_single_epoch(gpu_ind, args, epoch, train_net, trainloader, criteria, optimizer):
     train_net.train()
     train_watchdog = WatchDog()
@@ -114,7 +103,9 @@ def normal_train_single_epoch(gpu_ind, args, epoch, train_net, trainloader, crit
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
 
-def save_model(args, train_net):
+def save_model(gpu_ind, args, train_net):
+    if gpu_ind != 0:
+        return 
     if os.path.isdir(args.task_id) is False:
         os.mkdir(args.task_id)
     torch.save(train_net.state_dict(), args.task_id + '/' + args.save_model)
@@ -129,7 +120,8 @@ def fill_basis_mat(gpu_ind, args, train_net):
     end = start + length
     this_device = torch.device(gpu_ind)
     basis_mat = torch.zeros(length, cnt_param, device=this_device)
-    print("Initializing Basis Matrix:", list(basis_mat.shape))
+    if gpu_ind == 0:
+        print("Initializing Basis Matrix:", list(basis_mat.shape))
     for i in tqdm(range(length)):
         torch.cuda.set_device(this_device)
         torch.cuda.manual_seed(i + start)
@@ -156,7 +148,8 @@ def fill_basis_mat(gpu_ind, args, train_net):
     return basis_mat
 
 def pranc_init(gpu_ind, args, train_net):
-    print("Initializing PRANC")
+    if gpu_ind == 0:
+        print("Initializing PRANC")
     alpha = init_alpha(gpu_ind, args)
     basis_mat = fill_basis_mat(gpu_ind, args, train_net)
     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)

@@ -14,6 +14,7 @@ def ArgumentParser():
     parser.add_argument('--resume', default=None, type=str, help='Resume previous training')
     parser.add_argument('--epoch', required=True, type=int, help='Number of training epochs')
     parser.add_argument('--seed', default=None, type=int, help='Seed to initialize networks')
+    parser.add_argument('--scheduler', default='none', type=str, help='Training lr Scheduler')
     parser.add_argument('--save_path', default=None, type=str, help='Path to save the alphas')
     parser.add_argument('--save_model', default=None, type=str, help='Path to save the model')
     parser.add_argument('--weight-decay', default=1e-4, type=float, help='Weight Decay of SGD')
@@ -27,8 +28,10 @@ def ArgumentParser():
     parser.add_argument('--method', required=True, type=str, help='How to train model ["pranc", "normal"]')
     parser.add_argument('--log-rate', default=None, type=int, help='Rate of logging the training progress')
     parser.add_argument('--task_id', required=True, type=str, help='Experiment ID, Used for saving the model')
+    parser.add_argument('--scheduler_step', default=0, type=int, help='Steps for scheduler, only for step scheduler')
     parser.add_argument('--task', required=True, type=str, help='Classification task to solve [cifar10, cifar100, tiny]')
     parser.add_argument('--window', default=None, type=int, help='The number of alphas selected in each coordinate descent')
+    parser.add_argument('--scheduler_gamma', default=0.99, type=float, help='Gamma for updating learning rate in scheduler')
     parser.add_argument('--model', required=True, type=str, help='Architecture to train the PRANC [lenet, alexnet, resnet20, resnet56, convnet]')
 
     
