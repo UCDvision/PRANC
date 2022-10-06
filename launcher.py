@@ -15,6 +15,7 @@ args_str += ' --task ' + str(arguments['experiment']['task'])
 args_str += ' --model ' + str(arguments['experiment']['model_arch'])
 args_str += ' --img-width ' + str(arguments['dataset']['image_width'])
 args_str += ' --dataset ' + str(arguments['dataset']['dataset_path']) 
+args_str += ' --world_size ' + str(len(arguments['gpus']))
 
 if arguments['experiment']['method'] == 'pranc':
     if arguments['experiment']['mode'] == 'train':

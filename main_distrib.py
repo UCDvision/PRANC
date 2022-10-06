@@ -19,6 +19,7 @@ def gather_all_test(gpu_ind, args, train_net, testloader):
 
 
 def main_worker( gpu_ind, args):
+    print('hello')
     rank = args.global_rank + gpu_ind       
     dist.init_process_group(
     	backend='nccl',
@@ -54,7 +55,6 @@ def main_worker( gpu_ind, args):
             print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
     if args.method == 'pranc':
-        print('hello')
         alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(gpu_ind, args, train_net)
         if args.lr > 0:
             alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
@@ -79,6 +79,7 @@ if __name__ == '__main__':
     args = ArgumentParser()
     os.environ['MASTER_ADDR'] = args.dist_addr
     os.environ['MASTER_PORT'] = str(args.dist_port)
+    
     if args.method == 'pranc':
         assert args.num_alpha % args.world_size == 0
     mp.spawn(main_worker, nprocs = number_of_gpus, args=(args,))

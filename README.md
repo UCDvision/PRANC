@@ -9,7 +9,7 @@ torchvision==0.11.3
 tqdm==4.62.3
 
 or you can simply use:
-`pip3 install -f requirements.txt`
+`pip3 install -r requirements.txt`
 
 ## Running: 
 For running the code, simply use:
