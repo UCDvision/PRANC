@@ -1,0 +1,30 @@
+name: "Normal Training of CIFAR-10 with Resnet-20 with multi-GPU"
+id: "R20_CIFAR10_NORMAL_MULTI"
+gpus: [0,1,2,3]
+
+pranc:
+  seed: 0 
+  num_alpha: 10000
+  window_size: 10000  
+
+experiment:
+  mode: 'train'   #[train, test]
+  method: 'pranc'    #[normal, pranc]
+  loss: "cross-entropy"   #[cross-entropy, mse]
+  optimizer: 'adam'  #[sgd, adam]
+  lr: 0.001
+  epoch: 200
+  batch_size: 256   #optional for testing
+  # resume: 'R20_CIFAR10_NORMAL_MULTI/best_model.pt'  #for resuming training. if pranc, should be the signature path. if normal, should be the model path
+  # load_model: 'R20_CIFAR10_NORMAL_MULTI/best_model.pt' #for testing 
+  task: 'cifar10'
+  model_arch: 'resnet20'
+
+dataset:
+  image_width: 32 # set 32 for cifar, 64 tiny, 256 for imagenet
+  dataset_path: './datasets'
+
+monitor:  #optional for testing
+  log_rate: 50
+  save_model: 'best_model.pt' 
+  save_path: 'pranc'

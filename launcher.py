@@ -24,8 +24,13 @@ if arguments['experiment']['method'] == 'pranc':
     args_str += ' --seed ' + str(arguments['pranc']['seed'])
     args_str += ' --window ' + str(arguments['pranc']['window_size'])
     args_str += ' --num_alpha ' + str(arguments['pranc']['num_alpha'])
-        
-    
+
+if 'weight_decay' in arguments['experiments']:
+    args_str += ' --weight-decay ' + str(arguments['experiments']['weight_decay'])
+
+if 'momentum' in arguments['experiments']:
+    args_str += ' --momentum ' + str(arguments['experiments']['momentum'])
+
 if arguments['experiment']['mode'] == 'train':
     args_str += ' --lr ' + str(arguments['experiment']['lr'])
     args_str += ' --epoch ' + str(arguments['experiment']['epoch'])
@@ -44,5 +49,8 @@ elif arguments['experiment']['mode'] == 'test':
 if 'resume' in arguments['experiment'].keys():
     args_str += ' --resume ' + str(arguments['experiment']['resume']) 
 
-# print('CUDA_VISIBLE_DEVICES=' + str(arguments['gpus'])[1:-1] + ' python3 main_speedup.py ' + args_str )
-os.system('CUDA_VISIBLE_DEVICES=' + str(arguments['gpus'])[1:-1] + ' python3 main_speedup.py ' + args_str )
+gpus = ''
+for ind in arguments['gpus']:
+    gpus += str(ind) + ','
+print('CUDA_VISIBLE_DEVICES=' + gpus[:-1] + ' python3 main_distrib.py ' + args_str )
+os.system('CUDA_VISIBLE_DEVICES=' + gpus[:-1] + ' python3 main_distrib.py ' + args_str )

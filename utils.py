@@ -6,6 +6,7 @@ import torch.optim
 import torch.nn as nn
 from tqdm import tqdm
 from watchdog import WatchDog
+import torch.distributed as dist
 
 
 def save_signature(args, alpha, train_net):
@@ -54,14 +55,18 @@ def reset_lin_comb(args, alpha, lin_comb_net, theta, layer_cnt, shapes, dummy_ne
         end = min(end + args.window, args.num_alpha)
     return lin_comb_net
 
-def init_alpha(args):
+def init_alpha(gpu_ind, args):
     print("Initializing Alpha")
+    length = args.num_alpha // args.world_size
+    start = length * gpu_ind
+    end = start + length
     if args.resume is not None:
-        alp = torch.load(args.resume + '/alpha.pt')
+        alp = torch.load(args.resume + '/alpha.pt')[start:end]
     else:
-        alp = torch.zeros(args.num_alpha, requires_grad=True, device="cuda:0")
+        alp = torch.zeros(length, requires_grad=True, device=torch.device(gpu_ind))
         with torch.no_grad():
-            alp[0] = 1.
+            if gpu_ind == 0:
+                alp[0] = 1.
     return alp
 
 def loss_func(args):
@@ -89,24 +94,24 @@ def get_optimizer(args, params, for_what='network'):
         lr = args.pranc_lr
     
     if args.optimizer == 'sgd':
-        return torch.optim.SGD(params, lr=lr, momentum=.9, weight_decay=1e-4)
+        return torch.optim.SGD(params, lr=lr, momentum=args.momentum, weight_decay=args.weight_decay)
     if args.optimizer == 'adam':
         return torch.optim.Adam(params, lr=lr)
 
-def normal_train_single_epoch(args, epoch, train_net, trainloader, criteria, optimizer):
+def normal_train_single_epoch(gpu_ind, args, epoch, train_net, trainloader, criteria, optimizer):
     train_net.train()
     train_watchdog = WatchDog()
     for batch_idx, data in enumerate(trainloader):
         train_watchdog.start()
         optimizer.zero_grad()
         imgs, labels = data
-        imgs = imgs.cuda()
-        labels = labels.cuda()
+        imgs = imgs.to(gpu_ind)
+        labels = labels.to(gpu_ind)
         loss = criteria(train_net(imgs), labels)
         loss.backward()
         optimizer.step()
         train_watchdog.stop()
-        if batch_idx % args.log_rate == 0:
+        if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
 
 def save_model(args, train_net):
@@ -114,16 +119,20 @@ def save_model(args, train_net):
         os.mkdir(args.task_id)
     torch.save(train_net.state_dict(), args.task_id + '/' + args.save_model)
 
-def load_model(args):
-    return torch.load(args.resume)
+def load_model(gpu_ind, args):
+    return torch.load(args.resume, map_location=torch.device(gpu_ind))
 
-def fill_basis_mat(args, train_net):
+def fill_basis_mat(gpu_ind, args, train_net):
     cnt_param = sum([p.flatten().shape[0] for p in train_net.parameters()])
-    this_device = 'cuda:0'
-    basis_mat = torch.zeros(args.window, cnt_param, device=this_device)
+    length = args.num_alpha // args.world_size
+    start = length * gpu_ind
+    end = start + length
+    this_device = torch.device(gpu_ind)
+    basis_mat = torch.zeros(length, cnt_param, device=this_device)
     print("Initializing Basis Matrix:", list(basis_mat.shape))
-    for i in tqdm(range(args.num_alpha)):
-        torch.cuda.manual_seed(i)
+    for i in tqdm(range(length)):
+        torch.cuda.set_device(this_device)
+        torch.cuda.manual_seed(i + start)
         start_ind = 0
         for j, p in enumerate(train_net.parameters()):
             if len(p.shape) > 2:
@@ -146,21 +155,22 @@ def fill_basis_mat(args, train_net):
     
     return basis_mat
 
-def pranc_init(args, train_net):
+def pranc_init(gpu_ind, args, train_net):
     print("Initializing PRANC")
-    alpha = init_alpha(args)
-    basis_mat = fill_basis_mat(args, train_net)
+    alpha = init_alpha(gpu_ind, args)
+    basis_mat = fill_basis_mat(gpu_ind, args, train_net)
     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)
     with torch.no_grad():
         start_ind = 0
         init_net_weights = torch.matmul(alpha, basis_mat)
+        dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
         for _, p in enumerate(train_net.parameters()):
             p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
             start_ind +=  p.flatten().shape[0]
     if args.resume is not None:
         if 'resnet' in args.model:
-            means = torch.load(args.resume + '/means.pt')
-            vars = torch.load(args.resume + '/vars.pt')
+            means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
+            vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
         ind = 0
         for p1 in train_net.modules():
             if isinstance(p1, nn.BatchNorm2d):
@@ -189,7 +199,7 @@ def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
             start_ind += length
         return train_net
 
-def pranc_train_single_epoch(args, epoch, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer):
+def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer):
     train_net.train()
     train_watchdog = WatchDog()
     for batch_idx, data in enumerate(trainloader):
@@ -209,18 +219,18 @@ def pranc_train_single_epoch(args, epoch, basis_mat, train_net, train_net_shape_
         if batch_idx % args.log_rate == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
 
-def test(args, train_net, testloader):
+def test(gpu_ind, args, train_net, testloader):
     train_net.eval()
     cnt = 0
     total = 0
     for i, data in enumerate(testloader, 0):
         inputs, labels = data
-        outputs = train_net(inputs.cuda())
-        labels = labels.cuda()
+        outputs = train_net(inputs.to(gpu_ind))
+        labels = labels.to(gpu_ind)
         outputs = torch.argmax(outputs, dim=1)
         for i in range(outputs.shape[0]):
             if labels[i] == outputs[i]:
                 cnt += 1
             total += 1
 
-    return (cnt / total) * 100
+    return cnt, total

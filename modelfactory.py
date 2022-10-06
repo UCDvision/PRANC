@@ -37,4 +37,4 @@ def ModelFactory(args):
     if args.model == 'alexnet':
         train_net = models.AlexNet(num_classes=args.num_classes)
     
-    return nn.DataParallel(train_net.cuda())
+    return train_net
