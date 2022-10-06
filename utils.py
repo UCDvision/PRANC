@@ -191,6 +191,7 @@ def get_train_net_grads(train_net, train_net_grad_vec):
 
 def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
     train_net_shape_vec = torch.matmul(alpha, basis_mat)
+    dist.all_reduce(train_net_shape_vec, dist.ReduceOp.SUM, async_op=False)
     with torch.no_grad():
         start_ind = 0
         for p in train_net.parameters():
@@ -207,8 +208,8 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         net_optimizer.zero_grad()
         alpha_optimizer.zero_grad()
         imgs, labels = data
-        imgs = imgs.cuda()
-        labels = labels.cuda()
+        imgs = imgs.to(gpu_ind)
+        labels = labels.to(gpu_ind)
         loss = criteria(train_net(imgs), labels)
         loss.backward()
         train_net_shape_vec = get_train_net_grads(train_net, train_net_shape_vec)
@@ -216,7 +217,7 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         alpha_optimizer.step()
         train_net = update_train_net(alpha, basis_mat, train_net, train_net_shape_vec)
         train_watchdog.stop()
-        if batch_idx % args.log_rate == 0:
+        if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
 
 def test(gpu_ind, args, train_net, testloader):

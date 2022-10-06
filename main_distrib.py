@@ -54,6 +54,7 @@ def main_worker( gpu_ind, args):
             print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
     if args.method == 'pranc':
+        print('hello')
         alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(gpu_ind, args, train_net)
         if args.lr > 0:
             alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
@@ -61,14 +62,14 @@ def main_worker( gpu_ind, args):
         max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
         for e in range(args.epoch):
             pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)     #THIS IS WHERE WE ARE NOW
-            if e % 10 == 9:
+            if e % 10 == 9 and gpu_ind == 0:
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
                 test_watchdog.stop()
                 print("TEST RESULT:\tAcc:", round(acc, 3), "\tBest Acc:", round(max_acc,3), "\tTime:", test_watchdog.get_time_in_sec(), 'seconds')
                 if acc > max_acc:
-                    save_model(args, train_net)
-                    save_signature(args, alpha, train_net)              #NEEDS EDIT AS WELL
+                    # save_model(args, train_net)
+                    # save_signature(args, alpha, train_net)              #NEEDS EDIT AS WELL
                     max_acc = acc
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 

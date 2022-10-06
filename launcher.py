@@ -25,11 +25,11 @@ if arguments['experiment']['method'] == 'pranc':
     args_str += ' --window ' + str(arguments['pranc']['window_size'])
     args_str += ' --num_alpha ' + str(arguments['pranc']['num_alpha'])
 
-if 'weight_decay' in arguments['experiments']:
-    args_str += ' --weight-decay ' + str(arguments['experiments']['weight_decay'])
+if 'weight_decay' in arguments['experiment'].keys():
+    args_str += ' --weight-decay ' + str(arguments['experiment']['weight_decay'])
 
-if 'momentum' in arguments['experiments']:
-    args_str += ' --momentum ' + str(arguments['experiments']['momentum'])
+if 'momentum' in arguments['experiment'].keys():
+    args_str += ' --momentum ' + str(arguments['experiment']['momentum'])
 
 if arguments['experiment']['mode'] == 'train':
     args_str += ' --lr ' + str(arguments['experiment']['lr'])
