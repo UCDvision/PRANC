@@ -3,6 +3,7 @@ import torchvision
 from torch import nn
 from torch.nn import init
 import torch.nn.functional as func
+import torchvision.models as models
 
 class LeNet(nn.Module):
     def __init__(self, num_classes=10):
@@ -45,7 +46,7 @@ class LeNetMNIST(nn.Module):
         return x
 
 
-__all__ = ['ResNet', 'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202']
+__all__ = ['ResNet', 'resnet20', 'resnet32', 'resnet18', 'resnet44', 'resnet56', 'resnet110', 'resnet1202']
 
 
 def _weights_init(m):
@@ -137,6 +138,8 @@ def resnet20(num_classes = 10):
 def resnet56(num_classes = 10):
     return ResNet(BasicBlock, [9, 9, 9], num_classes=num_classes)
 
+def resnet18(num_classes = 1000):
+    return models.resnet18(num_classes=1000)
 
 class ConvNet(nn.Module):
     def __init__(self, channel, num_classes, net_width, net_depth, net_act, net_norm, net_pooling, im_size = (32,32)):

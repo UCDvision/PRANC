@@ -19,9 +19,15 @@ def ModelFactory(args):
         args.num_classes = 200
         args.size = 64
 
+    if args.task == 'imagenet':
+        args.num_classes = 1000
+
     if args.model == 'resnet20':
         train_net = models.resnet20(num_classes = args.num_classes)
 
+    if args.model == 'resnet18':
+        train_net = models.resnet18(num_classes = args.num_classes)
+    
     if args.model == 'resnet56':
         train_net = models.resnet56(num_classes = args.num_classes)
 

@@ -81,7 +81,31 @@ def DataLoader(args):
 
         testset = datasets.ImageFolder(os.path.join(args.dataset, "val"), transform=transform_test)
         test_sampler = torch.utils.data.distributed.DistributedSampler(testset, shuffle=False, drop_last=True)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
+        return trainloader, testloader
+    
+    if args.task == 'imagenet':
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
+        transform_train = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+        transform_test =  transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        trainset = datasets.ImageFolder(os.path.join(args.dataset, "train"), transform=transform_train)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_worker, sampler=train_sampler, pin_memory=True)
+
+        testset = datasets.ImageFolder(os.path.join(args.dataset, "val"), transform=transform_test)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(testset, shuffle=False, drop_last=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
         return trainloader, testloader
     
     raise "Unknown task"
