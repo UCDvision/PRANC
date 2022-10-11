@@ -84,7 +84,7 @@ def DataLoader(args):
         testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
         return trainloader, testloader
     
-    if args.task == 'imagenet':
+    if args.task == 'imagenet' or args.task == 'imagenet100':
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
         transform_train = transforms.Compose([
             transforms.RandomResizedCrop(224),
