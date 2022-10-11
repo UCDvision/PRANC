@@ -15,7 +15,7 @@ experiment:
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
   scheduler: 'step' #[none, step, exponential]
-  gamma: 0.7 #gamma for exponential and step scheduler 
+  gamma: 0.9 #gamma for exponential and step scheduler 
   step: 10  #step for step scheduler
   epoch: 200
   batch_size: 256   #optional for testing
