@@ -119,7 +119,7 @@ def fill_basis_mat(gpu_ind, args, train_net):
     start = length * gpu_ind
     end = start + length
     this_device = torch.device(gpu_ind)
-    basis_mat = torch.zeros(length, cnt_param, device=this_device)
+    basis_mat = torch.zeros(length, cnt_param, device=this_device, dtype=torch.float16)
     if gpu_ind == 0:
         print("Initializing Basis Matrix:", list(basis_mat.shape))
     for i in tqdm(range(length)):
@@ -155,7 +155,7 @@ def pranc_init(gpu_ind, args, train_net):
     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)
     with torch.no_grad():
         start_ind = 0
-        init_net_weights = torch.matmul(alpha, basis_mat)
+        init_net_weights = torch.matmul(alpha.half(), basis_mat).float()
         dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
         for _, p in enumerate(train_net.parameters()):
             p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
@@ -183,7 +183,7 @@ def get_train_net_grads(train_net, train_net_grad_vec):
         return train_net_grad_vec
 
 def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
-    train_net_shape_vec = torch.matmul(alpha, basis_mat)
+    train_net_shape_vec = torch.matmul(alpha.half(), basis_mat).float()
     dist.all_reduce(train_net_shape_vec, dist.ReduceOp.SUM, async_op=False)
     with torch.no_grad():
         start_ind = 0
@@ -206,7 +206,7 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         loss = criteria(train_net(imgs), labels)
         loss.backward()
         train_net_shape_vec = get_train_net_grads(train_net, train_net_shape_vec)
-        alpha.grad = torch.matmul(train_net_shape_vec, basis_mat.T)
+        alpha.grad = torch.matmul(train_net_shape_vec.half(), basis_mat.T).float()
         alpha_optimizer.step()
         train_net = update_train_net(alpha, basis_mat, train_net, train_net_shape_vec)
         train_watchdog.stop()

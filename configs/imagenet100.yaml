@@ -1,16 +1,16 @@
-name: "PRANC Training of ImageNet-100 with Resnet-18 with multi-GPU with 3,600 alpha"
+name: "PRANC Training of ImageNet-100 with Resnet-18 with multi-GPU with 7,000 alpha"
 id: "R18_IMAGENET100"
 gpus: [0,1,2,3,4,5,6,7]
 
 pranc:
   seed: 0 
-  num_alpha: 3600
+  num_alpha: 7000
 
 experiment:
   mode: 'train'   #[train, test]
   method: 'pranc'    #[normal, pranc]
   loss: "cross-entropy"   #[cross-entropy, mse]
-  lr: 0.0005
+  lr: 0.001
   optimizer: 'adam'  #[sgd, adam]
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
@@ -19,7 +19,7 @@ experiment:
   step: 10  #step for step scheduler
   epoch: 200
   batch_size: 256   #optional for testing
-  resume: 'R18_IMAGENET100/pranc'  #for resuming pranc training. 
+  # resume: 'R18_IMAGENET100/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
