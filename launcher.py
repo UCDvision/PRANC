@@ -17,7 +17,7 @@ args_str += ' --img-width ' + str(arguments['dataset']['image_width'])
 args_str += ' --dataset ' + str(arguments['dataset']['dataset_path']) 
 args_str += ' --world_size ' + str(len(arguments['gpus']))
 
-if arguments['experiment']['method'] == 'pranc':
+if arguments['experiment']['method'] == 'pranc' or arguments['experiment']['method'] == 'pranc_bin':
     if arguments['experiment']['mode'] == 'train':
         args_str += ' --pranc_lr ' + str(arguments['experiment']['lr'])
         args_str += ' --save_path ' + str(arguments['monitor']['save_path'])

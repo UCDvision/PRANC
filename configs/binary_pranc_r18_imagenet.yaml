@@ -1,14 +1,14 @@
-name: "PRANC Training of ImageNet with Resnet-18 with multi-GPU with 3,200 alpha"
+name: "Binary PRANC Training of ImageNet with Resnet-18 with multi-GPU with 55,000 alpha"
 id: "R18_IMAGENET"
 gpus: [0,1,2,3,4,5,6,7]
 
 pranc:
   seed: 0 
-  num_alpha: 3200
+  num_alpha: 55000
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'pranc'   #[normal, pranc, pranc_bin]
+  method: 'pranc_bin'   #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
   lr: 0.001
   optimizer: 'adam'  #[sgd, adam]

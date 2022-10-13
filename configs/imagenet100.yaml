@@ -8,7 +8,7 @@ pranc:
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'pranc'    #[normal, pranc]
+  method: 'pranc'    #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
   lr: 0.001
   optimizer: 'adam'  #[sgd, adam]

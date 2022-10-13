@@ -7,7 +7,7 @@ import torch.multiprocessing as mp
 from arguments import ArgumentParser
 from modelfactory import ModelFactory
 from torch.nn.parallel import DistributedDataParallel as DDP
-from utils import test, loss_func, init_net, get_optimizer, save_model, load_model, save_signature, normal_train_single_epoch, pranc_train_single_epoch, pranc_init, get_scheduler
+from utils import test, loss_func, init_net, get_optimizer, save_model, load_model, save_signature, normal_train_single_epoch, pranc_train_single_epoch, pranc_init, get_scheduler, pranc_bin_init, pranc_bin_train_single_epoch
 
 
 def gather_all_test(gpu_ind, args, train_net, testloader):
@@ -56,7 +56,7 @@ def main_worker( gpu_ind, args, shared_alpha):
             print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
     if args.method == 'pranc':
-        alpha, basis_mat, init_net_weights, train_net, train_net_shape_vec = pranc_init(gpu_ind, args, train_net)
+        alpha, basis_mat, train_net, train_net_shape_vec = pranc_init(gpu_ind, args, train_net)
         if args.lr > 0:
             alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
             net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
@@ -65,7 +65,7 @@ def main_worker( gpu_ind, args, shared_alpha):
             scheduler = None
         max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
         for e in range(args.epoch):
-            pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)     #THIS IS WHERE WE ARE NOW
+            pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)    
             if e % 10 == 9 :
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
@@ -74,7 +74,31 @@ def main_worker( gpu_ind, args, shared_alpha):
                     print("TEST RESULT:\tAcc:", round(acc, 3), "\tBest Acc:", round(max_acc,3), "\tTime:", test_watchdog.get_time_in_sec(), 'seconds')
                 if acc > max_acc:
                     save_model(gpu_ind, args, train_net)
-                    save_signature(gpu_ind, args, alpha, train_net, shared_alpha)              #NEEDS EDIT AS WELL
+                    save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
+                    max_acc = acc
+            scheduler.step()
+        print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
+    
+    if args.method == 'pranc_bin':
+        alpha, train_net, train_net_shape_vec, perm, perm_inverse = pranc_bin_init(gpu_ind, args, train_net)
+        if args.lr > 0:
+            alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
+            net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
+            scheduler = get_scheduler(args, alpha_optimizer)
+        else:
+            scheduler = None
+        max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
+        for e in range(args.epoch):
+            pranc_bin_train_single_epoch(gpu_ind, args, e, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse)    
+            if e % 1 == 0 :
+                test_watchdog.start()
+                acc = gather_all_test(gpu_ind, args, train_net, testloader)
+                test_watchdog.stop()
+                if gpu_ind == 0:
+                    print("TEST RESULT:\tAcc:", round(acc, 3), "\tBest Acc:", round(max_acc,3), "\tTime:", test_watchdog.get_time_in_sec(), 'seconds')
+                if acc > max_acc:
+                    save_model(gpu_ind, args, train_net)
+                    save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
                     max_acc = acc
             scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
