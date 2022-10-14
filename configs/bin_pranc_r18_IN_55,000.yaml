@@ -1,6 +1,6 @@
 name: "Binary PRANC Training of ImageNet with Resnet-18 with multi-GPU with 55,000 alpha"
-id: "R18_IMAGENET"
-gpus: [0,1,2,3,4,5,6,7]
+id: "R18_IMAGENET_55,000"
+gpus: [0]
 
 pranc:
   seed: 0 
@@ -15,8 +15,8 @@ experiment:
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
   scheduler: 'step' #[none, step, exponential]
-  gamma: 0.9 #gamma for exponential and step scheduler 
-  step: 10  #step for step scheduler
+  gamma: 0.1 #gamma for exponential and step scheduler 
+  step: 100  #step for step scheduler
   epoch: 200
   batch_size: 256   #optional for testing
   # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 
