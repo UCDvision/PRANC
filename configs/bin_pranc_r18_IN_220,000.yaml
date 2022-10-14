@@ -1,10 +1,10 @@
-name: "Binary PRANC Training of ImageNet with Resnet-18 with multi-GPU with 110,000 alpha"
+name: "Binary PRANC Training of ImageNet with Resnet-18 with multi-GPU with 220,000 alpha"
 id: "R18_IMAGENET_220,000"
 gpus: [0]
 
 pranc:
   seed: 0 
-  num_alpha: 110000
+  num_alpha: 220000
 
 experiment:
   mode: 'train'   #[train, test]
