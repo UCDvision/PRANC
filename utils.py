@@ -10,20 +10,30 @@ from watchdog import WatchDog
 import torch.distributed as dist
 
 
-def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):
+def prancable(m):
+    return isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d)
+
+def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):      
     if args.method == 'pranc_bin':
         if gpu_ind != 0:
             return
         if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
             os.mkdir(args.task_id + '/' + args.save_path)
         torch.save(alpha, args.task_id + '/' + args.save_path + '/alpha.pt')
-        if 'resnet' in args.model:
+        if 'resnet' in args.model:          #TODO: change this line for batchnorm
             mean = []
             var = []
+            bnw = []
+            bnb = []
             for p in train_net.modules():
                 if isinstance(p, nn.BatchNorm2d):
                     mean.append(p.running_mean)
                     var.append(p.running_var)
+                    bnw.append(p.weight)
+                    bnb.append(p.bias)
+            
+            torch.save(torch.cat(bnw), args.task_id + '/' + args.save_path +  '/bnw.pt')
+            torch.save(torch.cat(bnb), args.task_id + '/' + args.save_path +  '/bnb.pt')
             torch.save(torch.cat(mean), args.task_id + '/' + args.save_path +  '/means.pt')
             torch.save(torch.cat(var), args.task_id + '/' + args.save_path +  '/vars.pt')
         return
@@ -42,10 +52,17 @@ def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):
     if 'resnet' in args.model:
         mean = []
         var = []
+        bnw = []
+        bnb = []
         for p in train_net.modules():
             if isinstance(p, nn.BatchNorm2d):
                 mean.append(p.running_mean)
                 var.append(p.running_var)
+                bnw.append(p.weight)
+                bnb.append(p.bias)
+        
+        torch.save(torch.cat(bnw), args.task_id + '/' + args.save_path +  '/bnw.pt')
+        torch.save(torch.cat(bnb), args.task_id + '/' + args.save_path +  '/bnb.pt')
         torch.save(torch.cat(mean), args.task_id + '/' + args.save_path +  '/means.pt')
         torch.save(torch.cat(var), args.task_id + '/' + args.save_path +  '/vars.pt')
 
@@ -90,6 +107,8 @@ def get_optimizer(args, params, for_what='network'):
         lr = args.lr
     if for_what == 'pranc':
         lr = args.pranc_lr
+    if for_what == 'batchnorm':
+        lr = args.pranc_lr
     
     if args.optimizer == 'sgd':
         return torch.optim.SGD(params, lr=lr, momentum=args.momentum, weight_decay=args.weight_decay)
@@ -131,7 +150,12 @@ def load_model(gpu_ind, args):
     return torch.load(args.resume, map_location=torch.device(gpu_ind))
 
 def fill_basis_mat(gpu_ind, args, train_net):
-    cnt_param = sum([p.flatten().shape[0] for p in train_net.parameters()])
+    params = []
+    for m in train_net.modules():
+        if prancable(m):
+            for p in m.parameters():
+                params.append(p.flatten().shape[0])
+    cnt_param = sum(params)
     length = args.num_alpha // args.world_size
     start = length * gpu_ind
     end = start + length
@@ -143,25 +167,27 @@ def fill_basis_mat(gpu_ind, args, train_net):
         torch.cuda.set_device(this_device)
         torch.cuda.manual_seed(i + start)
         start_ind = 0
-        for j, p in enumerate(train_net.parameters()):
-            if len(p.shape) > 2:
-                t = torch.zeros(p.shape, device=this_device)
-                torch.nn.init.kaiming_uniform_(t, a=math.sqrt(5))
-                basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
-                start_ind +=  t.flatten().shape[0]
-                bound = 1 / math.sqrt(p.shape[1] * p.shape[2] * p.shape[3])
-            if len(p.shape) == 2:
-                bound = 1 / math.sqrt(p.shape[1])
-                t = torch.zeros(p.shape, device=this_device)
-                torch.nn.init.uniform_(t, -bound, bound)
-                basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
-                start_ind +=  t.flatten().shape[0]
-            if len(p.shape) < 2:
-                t = torch.zeros(p.shape, device=this_device)
-                torch.nn.init.uniform_(t , -bound, bound)
-                basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
-                start_ind +=  t.flatten().shape[0]
-    
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    if len(p.shape) > 2:
+                        t = torch.zeros(p.shape, device=this_device)
+                        torch.nn.init.kaiming_uniform_(t, a=math.sqrt(5))
+                        basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
+                        start_ind +=  t.flatten().shape[0]
+                        bound = 1 / math.sqrt(p.shape[1] * p.shape[2] * p.shape[3])
+                    if len(p.shape) == 2:
+                        bound = 1 / math.sqrt(p.shape[1])
+                        t = torch.zeros(p.shape, device=this_device)
+                        torch.nn.init.uniform_(t, -bound, bound)
+                        basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
+                        start_ind +=  t.flatten().shape[0]
+                    if len(p.shape) < 2:
+                        t = torch.zeros(p.shape, device=this_device)
+                        torch.nn.init.uniform_(t , -bound, bound)
+                        basis_mat[i][start_ind:start_ind + t.flatten().shape[0]] = t.flatten()
+                        start_ind +=  t.flatten().shape[0]
+        
     return basis_mat
 
 def pranc_init(gpu_ind, args, train_net):
@@ -174,29 +200,38 @@ def pranc_init(gpu_ind, args, train_net):
         start_ind = 0
         init_net_weights = torch.matmul(alpha.half(), basis_mat).float()
         dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
-        for _, p in enumerate(train_net.parameters()):
-            p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
-            start_ind +=  p.flatten().shape[0]
-    if args.resume is not None:
-        if 'resnet' in args.model:
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
+                    start_ind +=  p.flatten().shape[0]
+    if args.resume is not None:     
+        if 'resnet' in args.model:      #TODO: Handle for everything not just resnet
             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
+            bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
+            bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
         ind = 0
-        for p1 in train_net.modules():
-            if isinstance(p1, nn.BatchNorm2d):
-                leng = p1.running_var.shape[0]
-                p1.running_mean.copy_(means[ind:ind + leng])
-                p1.running_var.copy_(vars[ind:ind + leng])
-                ind += leng
+        with torch.no_grad():
+            for p1 in train_net.modules():
+                if isinstance(p1, nn.BatchNorm2d):
+                    leng = p1.running_var.shape[0]
+                    p1.weight.copy_(bn_weight[ind:ind + leng])
+                    p1.bias.copy_(bn_bias[ind:ind + leng])
+                    p1.running_mean.copy_(means[ind:ind + leng])
+                    p1.running_var.copy_(vars[ind:ind + leng])
+                    ind += leng
     return alpha, basis_mat, train_net, train_net_shape_vec
 
 def get_train_net_grads(train_net, train_net_grad_vec):
     with torch.no_grad():
         start_ind = 0
-        for p in train_net.parameters():
-            length = p.flatten().shape[0]
-            train_net_grad_vec[start_ind:start_ind + length] = p.grad.flatten()
-            start_ind += length
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    length = p.flatten().shape[0]
+                    train_net_grad_vec[start_ind:start_ind + length] = p.grad.flatten()
+                    start_ind += length
         return train_net_grad_vec
 
 def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
@@ -204,19 +239,22 @@ def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
     dist.all_reduce(train_net_shape_vec, dist.ReduceOp.SUM, async_op=False)
     with torch.no_grad():
         start_ind = 0
-        for p in train_net.parameters():
-            length = p.flatten().shape[0]
-            p.copy_(train_net_shape_vec[start_ind: start_ind + length].reshape(p.shape))
-            start_ind += length
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    length = p.flatten().shape[0]
+                    p.copy_(train_net_shape_vec[start_ind: start_ind + length].reshape(p.shape))
+                    start_ind += length
         return train_net
 
-def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer):
+def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, batchnorm_optimizer):
     train_net.train()
     train_watchdog = WatchDog()
     for batch_idx, data in enumerate(trainloader):
         train_watchdog.start()
         net_optimizer.zero_grad()
         alpha_optimizer.zero_grad()
+        batchnorm_optimizer.zero_grad()
         imgs, labels = data
         imgs = imgs.to(gpu_ind)
         labels = labels.to(gpu_ind)
@@ -225,6 +263,7 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         train_net_shape_vec = get_train_net_grads(train_net, train_net_shape_vec)
         alpha.grad = torch.matmul(train_net_shape_vec.half(), basis_mat.T).float()
         alpha_optimizer.step()
+        batchnorm_optimizer.step()
         train_net = update_train_net(alpha, basis_mat, train_net, train_net_shape_vec)
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
@@ -234,7 +273,12 @@ def init_bin_alpha(gpu_ind, args, train_net):
     if gpu_ind == 0:
         print("Initializing Alpha", args.num_alpha)
     random.seed(args.seed)
-    total_param = sum([p.flatten().shape[0] for p in train_net.parameters()])
+    total_param = []
+    for m in train_net.modules():
+        if prancable(m):
+            for p in m.parameters():
+                total_param.append(p.flatten().shape[0])
+    total_param = sum(total_param)
     required_param = math.ceil(total_param / args.num_alpha) * args.num_alpha
     if args.resume is not None:
         alp = torch.load(args.resume + '/alpha.pt', map_location='cuda:' + str(gpu_ind))
@@ -263,38 +307,48 @@ def pranc_bin_init(gpu_ind, args, train_net):
     with torch.no_grad():
         start_ind = 0
         init_net_weights.copy_(alpha[perm_inverse])
-        for _, p in enumerate(train_net.parameters()):
-            p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
-            start_ind +=  p.flatten().shape[0]
-    if args.resume is not None:
-        if 'resnet' in args.model:
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
+                    start_ind +=  p.flatten().shape[0]
+    if args.resume is not None:     #Handle for everything not just resnet
+        if 'resnet' in args.model:      
             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
+            bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
+            bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
         ind = 0
-        for p1 in train_net.modules():
-            if isinstance(p1, nn.BatchNorm2d):
-                leng = p1.running_var.shape[0]
-                p1.running_mean.copy_(means[ind:ind + leng])
-                p1.running_var.copy_(vars[ind:ind + leng])
-                ind += leng
+        with torch.no_grad():   
+            for p1 in train_net.modules():
+                if isinstance(p1, nn.BatchNorm2d):
+                    leng = p1.running_var.shape[0]
+                    p1.weight.copy_(bn_weight[ind:ind + leng])
+                    p1.bias.copy_(bn_bias[ind:ind + leng])
+                    p1.running_mean.copy_(means[ind:ind + leng])
+                    p1.running_var.copy_(vars[ind:ind + leng])
+                    ind += leng
     return alpha, train_net, net_grads, perm, perm_inverse
 
 def setup_net( train_net, train_net_shape_vec):
     with torch.no_grad():
         start_ind = 0
-        for p in train_net.parameters():
-            length = p.flatten().shape[0]
-            p.copy_(train_net_shape_vec[start_ind: start_ind + length].reshape(p.shape))
-            start_ind += length
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    length = p.flatten().shape[0]
+                    p.copy_(train_net_shape_vec[start_ind: start_ind + length].reshape(p.shape))
+                    start_ind += length
         return train_net
 
-def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse):
+def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse, batchnorm_optimizer):
     train_net.train()
     train_watchdog = WatchDog()
     for batch_idx, data in enumerate(trainloader):
         train_watchdog.start()
         net_optimizer.zero_grad()
         alpha_optimizer.zero_grad()
+        batchnorm_optimizer.zero_grad()
         with torch.no_grad():
             train_net_shape_vec.copy_(alpha[perm_inverse])
             train_net = setup_net(train_net, train_net_shape_vec)
@@ -309,6 +363,7 @@ def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shap
             train_net_shape_vec.copy_(get_train_net_grads(train_net, train_net_shape_vec))
             alpha.grad.copy_(torch.sum(train_net_shape_vec[perm], dim=1))
         alpha_optimizer.step()
+        batchnorm_optimizer.step()
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')

@@ -1,0 +1,36 @@
+name: "Binary PRANC Training of CIFAR-10 with Resnet-20 with multi-GPU with 17,000 alpha"
+id: "R20_CIFAR10_BIN_PRANC_MULTI_17,000"
+gpus: [0,1]
+
+pranc:
+  seed: 0 
+  num_alpha: 17000
+
+experiment:
+  mode: 'train'   #[train, test]
+  method: 'pranc_bin'    #[normal, pranc, pranc_bin]
+  loss: "cross-entropy"   #[cross-entropy, mse]
+  lr: 0.0001
+  optimizer: 'adam'  #[sgd, adam]
+  # momentum: 0.9 #momentum for sgd
+  # weight_decay: 0.0001 #weight decay for sgd
+  scheduler: 'step' #[none, step, exponential]
+  gamma: 0.5 #gamma for exponential and step scheduler 
+  step: 50  #step for step scheduler
+  epoch: 100
+  batch_size: 256   #optional for testing
+  resume: 'R20_CIFAR10_BIN_PRANC_MULTI_17,000/pranc'  #for resuming pranc training. 
+  # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
+  # load_model: '<TASK_ID>/pranc' #for pranc testing
+  # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
+  task: 'cifar10' #[mnist, cifar10, cifar100, tiny]
+  model_arch: 'resnet20'  #[lenet, resnet20, resnet56, alexnet, convnet, resnet18]
+
+dataset:
+  image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
+  dataset_path: './datasets'    #path to the dataset
+
+monitor:  #optional for testing
+  log_rate: 50
+  save_model: 'best_model.pt'    #if touch, modify resume and load_model
+  save_path: 'pranc'      #if touch, modify resume and load_model

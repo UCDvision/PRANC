@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 from watchdog import WatchDog
 import torch.distributed as dist
 from dataloader import DataLoader
@@ -60,12 +61,21 @@ def main_worker( gpu_ind, args, shared_alpha):
         if args.lr > 0:
             alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
             net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
-            scheduler = get_scheduler(args, alpha_optimizer)
+            batchnorms = []
+            for m in train_net.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    for p in m.parameters():
+                        batchnorms.append(p)
+            batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            alpha_scheduler = get_scheduler(args, alpha_optimizer)
+            batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
         else:
-            scheduler = None
+            alpha_scheduler = None
+            batchnorm_scheduler = None
+        
         max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
         for e in range(args.epoch):
-            pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer)    
+            pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, batchnorm_optimizer)    
             if e % 10 == 9 :
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
@@ -76,7 +86,8 @@ def main_worker( gpu_ind, args, shared_alpha):
                     save_model(gpu_ind, args, train_net)
                     save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
                     max_acc = acc
-            scheduler.step()
+            alpha_scheduler.step()
+            batchnorm_scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
     
     if args.method == 'pranc_bin':
@@ -84,12 +95,20 @@ def main_worker( gpu_ind, args, shared_alpha):
         if args.lr > 0:
             alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
             net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
-            scheduler = get_scheduler(args, alpha_optimizer)
+            batchnorms = []
+            for m in train_net.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    for p in m.parameters():
+                        batchnorms.append(p)
+            batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            alpha_scheduler = get_scheduler(args, alpha_optimizer)
+            batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
         else:
-            scheduler = None
+            alpha_scheduler = None
+            batchnorm_scheduler = None
         max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
         for e in range(args.epoch):
-            pranc_bin_train_single_epoch(gpu_ind, args, e, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse)    
+            pranc_bin_train_single_epoch(gpu_ind, args, e, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse, batchnorm_optimizer)    
             if e % 1 == 0 :
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
@@ -100,7 +119,8 @@ def main_worker( gpu_ind, args, shared_alpha):
                     save_model(gpu_ind, args, train_net)
                     save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
                     max_acc = acc
-            scheduler.step()
+            alpha_scheduler.step()
+            batchnorm_scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
 if __name__ == '__main__':
