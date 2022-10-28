@@ -377,9 +377,7 @@ def test(gpu_ind, args, train_net, testloader):
         outputs = train_net(inputs.to(gpu_ind))
         labels = labels.to(gpu_ind)
         outputs = torch.argmax(outputs, dim=1)
-        for i in range(outputs.shape[0]):
-            if labels[i] == outputs[i]:
-                cnt += 1
-            total += 1
+        cnt += torch.sum(labels == outputs)
+        total += labels.shape[0]
 
     return cnt, total
