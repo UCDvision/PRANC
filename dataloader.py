@@ -59,7 +59,7 @@ def DataLoader(args):
 
         testset = torchvision.datasets.CIFAR100(root=args.dataset, train=False, download=True, transform=transform_test)
         test_sampler = torch.utils.data.distributed.DistributedSampler(testset, shuffle=False, drop_last=True)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_worker, sampler=test_sampler, pin_memory=True)
         return trainloader, testloader
 
     if args.task == 'tiny':

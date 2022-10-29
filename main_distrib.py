@@ -66,9 +66,15 @@ def main_worker( gpu_ind, args, shared_alpha):
                 if isinstance(m, nn.BatchNorm2d):
                     for p in m.parameters():
                         batchnorms.append(p)
-            batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            if len(batchnorms) > 0:
+                batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            else:
+                batchnorm_optimizer = None
             alpha_scheduler = get_scheduler(args, alpha_optimizer)
-            batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
+            if batchnorm_optimizer is not None:
+                batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
+            else:
+                batchnorm_scheduler = None
         else:
             alpha_scheduler = None
             batchnorm_scheduler = None
@@ -87,7 +93,8 @@ def main_worker( gpu_ind, args, shared_alpha):
                     save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
                     max_acc = acc
             alpha_scheduler.step()
-            batchnorm_scheduler.step()
+            if batchnorm_scheduler is not None:
+                batchnorm_scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
     
     if args.method == 'pranc_bin':
@@ -100,9 +107,15 @@ def main_worker( gpu_ind, args, shared_alpha):
                 if isinstance(m, nn.BatchNorm2d):
                     for p in m.parameters():
                         batchnorms.append(p)
-            batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            if len(batchnorms) > 0:
+                batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+            else:
+                batchnorm_optimizer = None
             alpha_scheduler = get_scheduler(args, alpha_optimizer)
-            batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
+            if batchnorm_optimizer is not None:
+                batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
+            else:
+                batchnorm_scheduler = None
         else:
             alpha_scheduler = None
             batchnorm_scheduler = None
@@ -120,7 +133,8 @@ def main_worker( gpu_ind, args, shared_alpha):
                     save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
                     max_acc = acc
             alpha_scheduler.step()
-            batchnorm_scheduler.step()
+            if batchnorm_scheduler is not None:
+                batchnorm_scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
 if __name__ == '__main__':

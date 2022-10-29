@@ -13,6 +13,7 @@ def ModelFactory(args):
     if args.task == 'cifar100':
         args.depth = 3
         args.num_classes = 100
+        args.size = args.img_width
 
     if args.task == 'tiny':
         args.depth = 4

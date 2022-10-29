@@ -254,7 +254,8 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         train_watchdog.start()
         net_optimizer.zero_grad()
         alpha_optimizer.zero_grad()
-        batchnorm_optimizer.zero_grad()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.zero_grad()
         imgs, labels = data
         imgs = imgs.to(gpu_ind)
         labels = labels.to(gpu_ind)
@@ -263,7 +264,8 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         train_net_shape_vec = get_train_net_grads(train_net, train_net_shape_vec)
         alpha.grad = torch.matmul(train_net_shape_vec.half(), basis_mat.T).float()
         alpha_optimizer.step()
-        batchnorm_optimizer.step()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.step()
         train_net = update_train_net(alpha, basis_mat, train_net, train_net_shape_vec)
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
@@ -348,7 +350,8 @@ def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shap
         train_watchdog.start()
         net_optimizer.zero_grad()
         alpha_optimizer.zero_grad()
-        batchnorm_optimizer.zero_grad()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.zero_grad()
         with torch.no_grad():
             train_net_shape_vec.copy_(alpha[perm_inverse])
             train_net = setup_net(train_net, train_net_shape_vec)
@@ -363,7 +366,8 @@ def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shap
             train_net_shape_vec.copy_(get_train_net_grads(train_net, train_net_shape_vec))
             alpha.grad.copy_(torch.sum(train_net_shape_vec[perm], dim=1))
         alpha_optimizer.step()
-        batchnorm_optimizer.step()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.step()
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')

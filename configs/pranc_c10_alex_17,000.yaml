@@ -1,0 +1,36 @@
+name: "PRANC Training of CIFAR10 with AlexNet with multi-GPU with 17,000 alpha"
+id: "ALEX_CIFAR10_17,000"
+gpus: [0,1,2,3]
+
+pranc:
+  seed: 0 
+  num_alpha: 17000
+
+experiment:
+  mode: 'train'   #[train, test]
+  method: 'pranc'   #[normal, pranc, pranc_bin]
+  loss: "cross-entropy"   #[cross-entropy, mse]
+  lr: 0.001
+  optimizer: 'adam'  #[sgd, adam]
+  # momentum: 0.9 #momentum for sgd
+  # weight_decay: 0.0001 #weight decay for sgd
+  scheduler: 'step' #[none, step, exponential]
+  gamma: 0.1 #gamma for exponential and step scheduler 
+  step: 100  #step for step scheduler
+  epoch: 200
+  batch_size: 256   #optional for testing
+  # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 
+  # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
+  # load_model: '<TASK_ID>/pranc' #for pranc testing
+  # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
+  task: 'cifar10' #[mnist, cifar10, cifar100, tiny, imagenet]
+  model_arch: 'alexnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+
+dataset:
+  image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
+  dataset_path: './datasets'    #path to the dataset
+
+monitor:  #optional for testing
+  log_rate: 50
+  save_model: 'best_model.pt'    #if touch, modify resume and load_model
+  save_path: 'pranc'      #if touch, modify resume and load_model
