@@ -1,10 +1,10 @@
-name: "PRANC Training of CIFAR100 with ConvNet with multi-GPU with 5,000 alpha"
-id: "CONV_CIFAR100_5,000"
+name: "PRANC Training of CIFAR100 with ConvNet with multi-GPU with 10,000 alpha"
+id: "CONV_CIFAR100_10,000"
 gpus: [0,1,2,3]
 
 pranc:
   seed: 0 
-  num_alpha: 5000
+  num_alpha: 10000
 
 experiment:
   mode: 'train'   #[train, test]
