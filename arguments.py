@@ -3,14 +3,13 @@ import argparse
 
 def ArgumentParser():
     parser = argparse.ArgumentParser(description='Arguments of program')
-    
     parser.add_argument('--world_size', default=4, type=int, help='Number of GPUs')
     parser.add_argument('--dataset', required=True, type=str, help='Path to dataset')
     parser.add_argument('--momentum', default=0.9, type=float, help='Momentum of SGD')
     parser.add_argument('--num_alpha', default=None, type=int, help='Number of alphas')
     parser.add_argument('--global_rank', default=0, type=int, help='Rank among all GPUs')
     parser.add_argument('--seed', default=0, type=int, help='Seed to initialize networks')
-    parser.add_argument('--dist_port', default=8808, type=int, help='Master Port of access')
+    parser.add_argument('--dist_port', default=8880, type=int, help='Master Port of access')
     parser.add_argument('--lr', required=True, type=float, help='Learning rate for network')
     parser.add_argument('--resume', default=None, type=str, help='Resume previous training')
     parser.add_argument('--epoch', required=True, type=int, help='Number of training epochs')

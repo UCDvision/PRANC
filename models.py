@@ -141,6 +141,10 @@ def resnet56(num_classes = 10):
 def resnet18(num_classes = 1000):
     return models.resnet18(num_classes=num_classes)
 
+def resnet50(num_classes = 1000):
+    return models.resnet50(num_classes=num_classes)
+
+
 class ConvNet(nn.Module):
     def __init__(self, channel, num_classes, net_width, net_depth, net_act, net_norm, net_pooling, im_size = (32,32)):
         super(ConvNet, self).__init__()

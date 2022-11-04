@@ -31,7 +31,10 @@ def ModelFactory(args):
 
     if args.model == 'resnet18':
         train_net = models.resnet18(num_classes = args.num_classes)
-    
+
+    if args.model == 'resnet50':
+        train_net = models.resnet50(num_classes = args.num_classes)
+
     if args.model == 'resnet56':
         train_net = models.resnet56(num_classes = args.num_classes)
 

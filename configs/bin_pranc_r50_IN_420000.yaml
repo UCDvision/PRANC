@@ -1,5 +1,5 @@
-name: "Binary PRANC Training of ImageNet with Resnet-18 with multi-GPU with 420,000 alpha"
-id: "R18_IMAGENET_420,000"
+name: "Binary PRANC Training of ImageNet with Resnet-50 with multi-GPU with 400,000 alpha"
+id: "R50_IMAGENET_400,000"
 gpus: [2,3]
 
 pranc:
@@ -10,7 +10,7 @@ experiment:
   mode: 'train'   #[train, test]
   method: 'pranc_bin'   #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
-  lr: 0.1
+  lr: 0.001
   optimizer: 'adam'  #[sgd, adam]
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
@@ -19,12 +19,12 @@ experiment:
   step: 100  #step for step scheduler
   epoch: 200
   batch_size: 256   #optional for testing
-  # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 
+  resume: 'R50_IMAGENET_420,000/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
   task: 'imagenet' #[mnist, cifar10, cifar100, tiny, imagenet]
-  model_arch: 'resnet18'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  model_arch: 'resnet50'  #[lenet, resnet18, resnet50, resnet20, resnet56, alexnet, convnet]
 
 dataset:
   image_width: 256 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
