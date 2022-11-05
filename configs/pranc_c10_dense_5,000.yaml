@@ -1,14 +1,14 @@
-name: "PRANC Training of CIFAR10 with AlexNet with single-GPU with 17,000 alpha"
-id: "ALEX_CIFAR10_17,000"
-gpus: [2]
+name: "PRANC Training of CIFAR10 with DenseNet121 with multi-GPU with 5,000 alpha"
+id: "DENSE_CIFAR10_5,000"
+gpus: [0,1,2,3]
 
 pranc:
   seed: 0 
-  num_alpha: 17000
+  num_alpha: 50000
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'pranc'   #[normal, pranc, pranc_bin]
+  method: 'pranc_bin'   #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
   lr: 0.001
   optimizer: 'adam'  #[sgd, adam]
@@ -24,7 +24,7 @@ experiment:
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
   task: 'cifar10' #[mnist, cifar10, cifar100, tiny, imagenet]
-  model_arch: 'alexnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  model_arch: 'densenet121'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
 
 dataset:
   image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet

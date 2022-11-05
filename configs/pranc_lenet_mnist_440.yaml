@@ -1,10 +1,10 @@
-name: "PRANC Training of CIFAR10 with AlexNet with single-GPU with 17,000 alpha"
-id: "ALEX_CIFAR10_17,000"
+name: "PRANC Training of MNIST with LeNet with single-GPU with 440 alpha"
+id: "LENET_MNIST_440"
 gpus: [2]
 
 pranc:
   seed: 0 
-  num_alpha: 17000
+  num_alpha: 5500
 
 experiment:
   mode: 'train'   #[train, test]
@@ -15,19 +15,19 @@ experiment:
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
   scheduler: 'step' #[none, step, exponential]
-  gamma: 0.1 #gamma for exponential and step scheduler 
-  step: 200  #step for step scheduler
-  epoch: 400
+  gamma: 0.5 #gamma for exponential and step scheduler 
+  step: 5  #step for step scheduler
+  epoch: 50
   batch_size: 256   #optional for testing
   # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
-  task: 'cifar10' #[mnist, cifar10, cifar100, tiny, imagenet]
-  model_arch: 'alexnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  task: 'mnist' #[mnist, cifar10, cifar100, tiny, imagenet]
+  model_arch: 'lenet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
 
 dataset:
-  image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
+  image_width: 28 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
   dataset_path: './datasets'    #path to the dataset
 
 monitor:  #optional for testing

@@ -38,6 +38,9 @@ def ModelFactory(args):
     if args.model == 'resnet56':
         train_net = models.resnet56(num_classes = args.num_classes)
 
+    if args.model == 'densenet121':
+        train_net = models.densenet121(num_classes = args.num_classes)
+
     if args.model == 'lenet':
         if args.task == 'mnist':
             train_net = models.LeNetMNIST(num_classes = args.num_classes)

@@ -141,6 +141,9 @@ def resnet56(num_classes = 10):
 def resnet18(num_classes = 1000):
     return models.resnet18(num_classes=num_classes)
 
+def densenet121(num_classes = 1000):
+    return models.densenet121(num_classes=num_classes)
+
 def resnet50(num_classes = 1000):
     return models.resnet50(num_classes=num_classes)
 

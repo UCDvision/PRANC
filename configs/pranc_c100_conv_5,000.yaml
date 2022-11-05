@@ -1,16 +1,16 @@
-name: "PRANC Training of CIFAR10 with AlexNet with single-GPU with 17,000 alpha"
-id: "ALEX_CIFAR10_17,000"
-gpus: [2]
+name: "PRANC Training of CIFAR100 with ConvNet with single-GPU with 5,000 alpha"
+id: "CONV_CIFAR100_5,000"
+gpus: [0]
 
 pranc:
   seed: 0 
-  num_alpha: 17000
+  num_alpha: 5000
 
 experiment:
   mode: 'train'   #[train, test]
   method: 'pranc'   #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
-  lr: 0.001
+  lr: 0.01
   optimizer: 'adam'  #[sgd, adam]
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
@@ -19,12 +19,12 @@ experiment:
   step: 200  #step for step scheduler
   epoch: 400
   batch_size: 256   #optional for testing
-  # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 
+  # resume: 'CONV_CIFAR100_5,000/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
-  task: 'cifar10' #[mnist, cifar10, cifar100, tiny, imagenet]
-  model_arch: 'alexnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  task: 'cifar100' #[mnist, cifar10, cifar100, tiny, imagenet]
+  model_arch: 'convnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
 
 dataset:
   image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
