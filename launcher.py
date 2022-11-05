@@ -9,6 +9,7 @@ with open(args.config_file, 'r') as file:
     arguments = yaml.safe_load(file)
 
 args_str = '--task_id ' + arguments['id']
+args_str += ' --dist_port ' + str(arguments['port'])
 args_str += ' --loss ' + arguments['experiment']['loss']
 args_str += ' --method ' + arguments['experiment']['method'] 
 args_str += ' --task ' + str(arguments['experiment']['task'])
