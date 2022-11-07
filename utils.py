@@ -14,7 +14,7 @@ def prancable(m):
     return isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d)
 
 def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):      
-    if args.method == 'pranc_bin':
+    if args.method == 'pranc_bin' or args.method == 'ppb':
         if gpu_ind != 0:
             return
         if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
@@ -365,6 +365,104 @@ def pranc_bin_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shap
         with torch.no_grad():
             train_net_shape_vec.copy_(get_train_net_grads(train_net, train_net_shape_vec))
             alpha.grad.copy_(torch.sum(train_net_shape_vec[perm], dim=1))
+        alpha_optimizer.step()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.step()
+        train_watchdog.stop()
+        if batch_idx % args.log_rate == 0 and gpu_ind == 0:
+            print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
+
+def init_ppb_alpha(gpu_ind, args, train_net):
+    if gpu_ind == 0:
+        print("Initializing Alpha", args.num_alpha)
+    random.seed(args.seed)
+    total_param = []
+    for m in train_net.modules():
+        if prancable(m):
+            for p in m.parameters():
+                total_param.append(p.flatten().shape[0])
+    total_param = sum(total_param)
+    required_param = math.ceil(total_param / args.num_alpha) * args.num_alpha
+    if args.resume is not None:
+        alp = torch.load(args.resume + '/alpha.pt', map_location='cuda:' + str(gpu_ind))
+    else:
+        torch.cuda.set_device(gpu_ind)
+        torch.cuda.manual_seed(args.seed)
+        alp = torch.randn((args.num_beta, args.num_alpha), requires_grad=True, device=torch.device(gpu_ind))
+        with torch.no_grad():
+            alp /= 10
+    net_weights = torch.zeros(required_param, device=gpu_ind)
+    net_grad = torch.zeros(required_param, device=gpu_ind)
+    permutation = []
+    for i in range(args.num_beta):
+        tmp = list(range(required_param))
+        random.shuffle(tmp)
+        permutation.append(tmp)
+    perm = torch.tensor(permutation).reshape(args.num_beta, args.num_alpha, -1)
+    perm_inverse = []
+    for i in range(args.num_beta):
+        tmp = [0] * required_param
+        for j in range(len(permutation[i])):
+            tmp[permutation[i][j]] = j // (required_param // args.num_alpha)
+        perm_inverse.append(tmp)
+    perm_inverse = torch.tensor(perm_inverse)
+    return  perm, perm_inverse, alp, net_weights, net_grad
+
+def ppb_init(gpu_ind, args, train_net):
+    if gpu_ind == 0:
+        print("Initializing PPB")
+    perm, perm_inverse, alpha, init_net_weights, net_grads = init_ppb_alpha(gpu_ind, args, train_net)
+    with torch.no_grad():
+        start_ind = 0
+        tmp = [alpha[i][perm_inverse[i]] for i in range(args.num_beta)]
+        init_net_weights.copy_(sum(tmp))
+        for m in train_net.modules():
+            if prancable(m):
+                for p in m.parameters():
+                    p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
+                    start_ind +=  p.flatten().shape[0]
+    if args.resume is not None:     #Handle for everything not just resnet
+        if 'resnet' in args.model:      
+            means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
+            vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
+            bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
+            bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
+        ind = 0
+        with torch.no_grad():   
+            for p1 in train_net.modules():
+                if isinstance(p1, nn.BatchNorm2d):
+                    leng = p1.running_var.shape[0]
+                    p1.weight.copy_(bn_weight[ind:ind + leng])
+                    p1.bias.copy_(bn_bias[ind:ind + leng])
+                    p1.running_mean.copy_(means[ind:ind + leng])
+                    p1.running_var.copy_(vars[ind:ind + leng])
+                    ind += leng
+    return alpha, train_net, net_grads, perm, perm_inverse
+
+def ppb_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, perm, perm_inverse, batchnorm_optimizer):
+    train_net.train()
+    train_watchdog = WatchDog()
+    for batch_idx, data in enumerate(trainloader):
+        train_watchdog.start()
+        net_optimizer.zero_grad()
+        alpha_optimizer.zero_grad()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.zero_grad()
+        with torch.no_grad():
+            tmp = [alpha[i][perm_inverse[i]] for i in range(args.num_beta)]
+            train_net_shape_vec.copy_(sum(tmp))
+            train_net = setup_net(train_net, train_net_shape_vec)
+        imgs, labels = data
+        imgs = imgs.to(gpu_ind)
+        labels = labels.to(gpu_ind)
+        loss = criteria(train_net(imgs), labels)
+        loss.backward()
+        if alpha.grad is None:
+            alpha.grad = torch.zeros(alpha.shape, device=alpha.device)
+        with torch.no_grad():
+            train_net_shape_vec.copy_(get_train_net_grads(train_net, train_net_shape_vec))
+            for i in range(args.num_beta):
+                alpha.grad[i].copy_(torch.sum(train_net_shape_vec[perm[i]], dim=1))
         alpha_optimizer.step()
         if batchnorm_optimizer is not None:
             batchnorm_optimizer.step()

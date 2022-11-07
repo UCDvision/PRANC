@@ -1,6 +1,7 @@
 name: "PRANC Training of tinyImageNet with ConvNet with single-GPU with 8,500 alpha"
 id: "CONV_TINY_8,500"
 gpus: [1]
+port: 8881
 
 pranc:
   seed: 0 
@@ -16,7 +17,7 @@ experiment:
   # weight_decay: 0.0001 #weight decay for sgd
   scheduler: 'step' #[none, step, exponential]
   gamma: 0.1 #gamma for exponential and step scheduler 
-  step: 200  #step for step scheduler
+  step: 100  #step for step scheduler
   epoch: 400
   batch_size: 256   #optional for testing
   # resume: 'R18_IMAGENET/pranc'  #for resuming pranc training. 

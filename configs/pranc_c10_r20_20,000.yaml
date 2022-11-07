@@ -11,16 +11,16 @@ experiment:
   mode: 'train'   #[train, test]
   method: 'pranc'    #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
-  lr: 0.001
+  lr: 0.0001
   optimizer: 'adam'  #[sgd, adam]
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
   scheduler: 'step' #[none, step, exponential]
   gamma: 0.5 #gamma for exponential and step scheduler 
   step: 50  #step for step scheduler
-  epoch: 200
+  epoch: 20
   batch_size: 256   #optional for testing
-  # resume: 'R20_CIFAR10_PRANC_MULTI_17,000/pranc'  #for resuming pranc training. 
+  resume: 'R20_CIFAR10_PRANC_20,000/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
