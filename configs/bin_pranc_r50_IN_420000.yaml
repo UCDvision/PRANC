@@ -10,7 +10,7 @@ experiment:
   mode: 'train'   #[train, test]
   method: 'pranc_bin'   #[normal, pranc, pranc_bin]
   loss: "cross-entropy"   #[cross-entropy, mse]
-  lr: 0.001
+  lr: 0.0001
   optimizer: 'adam'  #[sgd, adam]
   # momentum: 0.9 #momentum for sgd
   # weight_decay: 0.0001 #weight decay for sgd
@@ -19,7 +19,7 @@ experiment:
   step: 100  #step for step scheduler
   epoch: 200
   batch_size: 256   #optional for testing
-  resume: 'R50_IMAGENET_420,000/pranc'  #for resuming pranc training. 
+  resume: 'R50_IMAGENET_400,000/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 

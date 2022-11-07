@@ -82,7 +82,7 @@ def main_worker( gpu_ind, args, shared_alpha):
         max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
         for e in range(args.epoch):
             pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, batchnorm_optimizer)    
-            if e % 10 == 9 :
+            if e % 1 == 0 :
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
                 test_watchdog.stop()

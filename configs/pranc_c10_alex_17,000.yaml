@@ -1,6 +1,7 @@
 name: "PRANC Training of CIFAR10 with AlexNet with single-GPU with 17,000 alpha"
 id: "ALEX_CIFAR10_17,000"
-gpus: [2]
+gpus: [0,1,2,3]
+port: 8880
 
 pranc:
   seed: 0 
