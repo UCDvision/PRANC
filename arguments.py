@@ -29,6 +29,8 @@ def ArgumentParser():
     parser.add_argument('--log-rate', default=None, type=int, help='Rate of logging the training progress')
     parser.add_argument('--task_id', required=True, type=str, help='Experiment ID, Used for saving the model')
     parser.add_argument('--scheduler_step', default=0, type=int, help='Steps for scheduler, only for step scheduler')
+    parser.add_argument('--num_alpha_enc', default=None, type=int, help='Number of alphas for encoder for on the fly')
+    parser.add_argument('--num_alpha_cls', default=None, type=int, help='Number of alphas for classifier for on the fly')
     parser.add_argument('--task', required=True, type=str, help='Classification task to solve [cifar10, cifar100, tiny]')
     parser.add_argument('--window', default=None, type=int, help='The number of alphas selected in each coordinate descent')
     parser.add_argument('--scheduler_gamma', default=0.99, type=float, help='Gamma for updating learning rate in scheduler')

@@ -1,15 +1,16 @@
-name: "PRANC Training of CIFAR100 with ConvNet with multi-GPU with 10,000 alpha"
-id: "CONV_CIFAR100_10,000"
-gpus: [0]
+name: "PRANC on the fly Training of ImageNet 100 with ResNet-18 with Single-GPU with 100,000 alpha"
+id: "R18_IMAGENET100_OTF_100,000"
+gpus: [0,3]
 port: 8880
 
 pranc:
   seed: 0 
-  num_alpha: 10000
+  num_alpha_enc: 2000
+  num_alpha_cls: 60000
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'pranc'   #[normal, pranc, pranc_bin]
+  method: 'pranc_otf'   #[normal, pranc, pranc_bin, pranc_otf]
   loss: "cross-entropy"   #[cross-entropy, mse]
   lr: 0.001
   optimizer: 'adam'  #[sgd, adam]
@@ -19,17 +20,17 @@ experiment:
   gamma: 0.5 #gamma for exponential and step scheduler 
   step: 50  #step for step scheduler
   epoch: 400
-  batch_size: 256   #optional for testing
-  # resume: 'CONV_CIFAR100_10,000/pranc'  #for resuming pranc training. 
+  batch_size: 512   #optional for testing
+  resume: 'R18_IMAGENET100_OTF_100,000/pranc'  #for resuming pranc training. 
   # resume: '<TASK_ID>/best_model.pt'  #for resuming normal training. 
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
-  task: 'cifar100' #[mnist, cifar10, cifar100, tiny, imagenet]
-  model_arch: 'convnet'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  task: 'imagenet100' #[mnist, cifar10, cifar100, tiny, imagenet, imagenet100]
+  model_arch: 'resnet18'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
 
 dataset:
-  image_width: 32 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
-  dataset_path: './datasets'    #path to the dataset
+  image_width: 256 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
+  dataset_path: '/datasets/imagenet100'    #path to the dataset
 
 monitor:  #optional for testing
   log_rate: 50

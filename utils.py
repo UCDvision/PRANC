@@ -1,13 +1,16 @@
 import os
 import pdb
 import math
+import time
 import torch
 import random
 import torch.optim 
 import torch.nn as nn
 from tqdm import tqdm
 from watchdog import WatchDog
+import torch.nn.functional as F
 import torch.distributed as dist
+
 
 
 def prancable(m):
@@ -476,57 +479,188 @@ def ppb_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shape_vec,
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
 
-# def init_alpha_otf(gpu_ind, args):
-#     if gpu_ind == 0:
-#         print("Initializing Alpha")
-#     length = args.num_alpha // args.world_size
-#     start = length * gpu_ind
-#     end = start + length
-#     if args.resume is not None:
-#         alp = torch.load(args.resume + '/alpha.pt')[start:end]
-#         alp = alp.to(gpu_ind)
-#     else:
-#         alp = torch.zeros(length, requires_grad=True, device=torch.device(gpu_ind))
-#         with torch.no_grad():
-#             if gpu_ind == 0:
-#                 alp[0] = 1.
-#     return alp
+def init_alpha_otf(gpu_ind, args, train_net):
+    if gpu_ind == 0:
+        print("Initializing Alpha")
+    if args.resume is not None:
+        alpha_encoder = torch.load(args.resume + '/alpha_enc.pt')
+        alpha_encoder = alpha_encoder.to(gpu_ind)
+        alpha_classifier = torch.load(args.resume + '/alpha_cls.pt')
+        alpha_classifier = alpha_classifier.to(gpu_ind)
+    else:
+        num_layer = 0
+        for m in train_net.modules():
+            if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+                num_layer += 1
+        
+        alpha_encoder = torch.randn(num_layer - 1, args.num_alpha_enc, requires_grad=True, device=gpu_ind)
+        alpha_classifier = torch.randn(1, args.num_alpha_cls, requires_grad=True, device=gpu_ind)
+        with torch.no_grad():
+            alpha_encoder = F.normalize(alpha_encoder, p=1)
+            alpha_classifier = F.normalize(alpha_classifier, p=1)
+    return alpha_encoder, alpha_classifier
 
-# def pranc_otf_init(gpu_ind, args, train_net):
-#     if gpu_ind == 0:
-#         print("Initializing PRANC On the Fly")
-#     alpha = init_alpha_otf(gpu_ind, args)
-#     basis_mat = fill_basis_mat(gpu_ind, args, train_net)
-#     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)
+def setup_otf_net(gpu_ind, args, alpha_enc, alpha_cls, train_net):
+    with torch.no_grad():
+        cnt = 0
+        for i, m in enumerate(train_net.modules()):
+            if isinstance(m, nn.Conv2d):
+                num_param = 0
+                for p in m.parameters():
+                    num_param += p.flatten().shape[0]
+                torch.cuda.manual_seed(i)
+                w = torch.zeros(num_param, device=gpu_ind)
+                if args.num_alpha_enc > 400:
+                    K = args.num_alpha_enc // 400
+                else:
+                    K = 1
+                N = args.num_alpha_enc
+                for k in range(K):
+                    w += torch.matmul(alpha_enc[cnt][k * N // K: (k + 1) * N // K], torch.normal(mean=0, std = 0.001, size=(N // K, num_param), device=gpu_ind))
+                cnt += 1
+                s = 0
+                for p in m.parameters():
+                    leng = p.flatten().shape[0]
+                    p.copy_(w[s: s+leng].reshape(p.shape))
+                    s += leng
+            elif isinstance(m, nn.Linear):
+                num_param = 0
+                for p in m.parameters():
+                    num_param += p.flatten().shape[0]
+                torch.cuda.manual_seed(i)
+                w = torch.zeros(num_param, device=gpu_ind)
+                if args.num_alpha_cls > 5000:
+                    K = args.num_alpha_cls // 5000
+                else:
+                    K = 1
+                N = args.num_alpha_cls
+                for k in range(k):
+                    w += torch.matmul(alpha_cls[0][k * N // K: (k + 1) * N // K], torch.normal(mean=0, std = 0.001, size=(N // K , num_param), device=gpu_ind))
+                s = 0
+                for p in m.parameters():
+                    leng = p.flatten().shape[0]
+                    p.copy_(w[s: s+leng].reshape(p.shape))
+                    s += leng
+    return train_net
 
-#     with torch.no_grad():
-#         start_ind = 0
-#         init_net_weights = torch.matmul(alpha, basis_mat).float()
-#         dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
-#         for m in train_net.modules():
-#             if prancable(m):
-#                 for p in m.parameters():
-#                     p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
-#                     start_ind +=  p.flatten().shape[0]
-#     if args.resume is not None:     
-#         if has_batchnorm(train_net):    
-#             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
-#             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
-#             bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
-#             bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
-#         ind = 0
-#         with torch.no_grad():
-#             for p1 in train_net.modules():
-#                 if isinstance(p1, nn.BatchNorm2d):
-#                     leng = p1.running_var.shape[0]
-#                     p1.weight.copy_(bn_weight[ind:ind + leng])
-#                     p1.bias.copy_(bn_bias[ind:ind + leng])
-#                     p1.running_mean.copy_(means[ind:ind + leng])
-#                     p1.running_var.copy_(vars[ind:ind + leng])
-#                     ind += leng
-#     return alpha, train_net
+def pranc_otf_init(gpu_ind, args, train_net):
+    if gpu_ind == 0:
+        print("Initializing PRANC On the Fly")
+    alpha_encoder, alpha_classifier = init_alpha_otf(gpu_ind, args, train_net)
+    train_net = setup_otf_net(gpu_ind, args, alpha_encoder, alpha_classifier, train_net)
+    
+    if args.resume is not None:     
+        if has_batchnorm(train_net):    
+            means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
+            vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
+            bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
+            bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
+        ind = 0
+        with torch.no_grad():
+            for p1 in train_net.modules():
+                if isinstance(p1, nn.BatchNorm2d):
+                    leng = p1.running_var.shape[0]
+                    p1.weight.copy_(bn_weight[ind:ind + leng])
+                    p1.bias.copy_(bn_bias[ind:ind + leng])
+                    p1.running_mean.copy_(means[ind:ind + leng])
+                    p1.running_var.copy_(vars[ind:ind + leng])
+                    ind += leng
+    return alpha_encoder, alpha_classifier, train_net
 
+def set_alpha_grads(gpu_ind, args, alpha_encoder, alpha_classifier, train_net):
+    with torch.no_grad():
+        cnt = 0
+        for i, m in enumerate(train_net.modules()):
+            if isinstance(m, nn.Conv2d):
+                num_param = 0
+                for p in m.parameters():
+                    num_param += p.flatten().shape[0]
+                grads = torch.zeros(num_param, device=gpu_ind)
+                s = 0
+                for p in m.parameters():
+                    leng = p.flatten().shape[0]
+                    grads[s: s+leng].copy_(p.grad.flatten())
+                    s += leng
+                torch.cuda.manual_seed(i)
+                if alpha_encoder.grad == None:
+                    alpha_encoder.grad = torch.zeros(alpha_encoder.shape, device= alpha_encoder.device)
+                if args.num_alpha_enc > 400:
+                    K = args.num_alpha_enc // 400
+                else:
+                    K = 1
+                N = args.num_alpha_enc
+                for k in range(K):
+                    alpha_encoder.grad[cnt][k * N // K: (k + 1) * N // K] = torch.matmul(torch.normal(mean=0, std = 0.001, size=(N // K, num_param), device=gpu_ind), grads)
+                cnt += 1
+            elif isinstance(m, nn.Linear):
+                num_param = 0
+                for p in m.parameters():
+                    num_param += p.flatten().shape[0]
+                grads = torch.zeros(num_param, device=gpu_ind)
+                s = 0
+                for p in m.parameters():
+                    leng = p.flatten().shape[0]
+                    grads[s: s+leng].copy_(p.grad.flatten())
+                    s += leng
+                torch.cuda.manual_seed(i)
+                if alpha_classifier.grad == None:
+                    alpha_classifier.grad = torch.zeros(alpha_classifier.shape, device= alpha_classifier.device)
+                if args.num_alpha_cls > 5000:
+                    K = args.num_alpha_cls // 500
+                else:
+                    K = 1
+                N = args.num_alpha_cls
+                for k in range(K):
+                    alpha_classifier.grad[0][k * N // K: (k + 1) * N // K] = torch.matmul(torch.normal(mean=0, std = 0.001, size=(N // K, num_param), device=gpu_ind), grads)
 
+def pranc_otf_train_single_epoch(gpu_ind, args, epoch, train_net, alpha_encoder, alpha_classifier, trainloader, criteria, alpha_optimizer, net_optimizer, batchnorm_optimizer):
+    train_net.train()
+    train_watchdog = WatchDog()
+    for batch_idx, data in enumerate(trainloader):
+        train_watchdog.start()
+        net_optimizer.zero_grad()
+        alpha_optimizer.zero_grad()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.zero_grad()
+        imgs, labels = data
+        imgs = imgs.to(gpu_ind)
+        labels = labels.to(gpu_ind)
+        loss = criteria(train_net(imgs), labels)
+        loss.backward()
+        set_alpha_grads(gpu_ind, args, alpha_encoder, alpha_classifier, train_net)
+        alpha_optimizer.step()
+        if batchnorm_optimizer is not None:
+            batchnorm_optimizer.step()
+        train_net = setup_otf_net(gpu_ind, args, alpha_encoder, alpha_classifier, train_net)
+        train_watchdog.stop()
+        if batch_idx % args.log_rate == 0 and gpu_ind == 0:
+            print("Epoch:", epoch, "Iter:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
+
+def save_signature_otf(gpu_ind, args, alpha_encoder, alpha_classifier, train_net):
+    if gpu_ind != 0:
+        return
+    if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
+        os.mkdir(args.task_id + '/' + args.save_path)
+    torch.save(alpha_encoder, args.task_id + '/' + args.save_path + '/alpha_enc.pt')
+    torch.save(alpha_classifier, args.task_id + '/' + args.save_path + '/alpha_cls.pt')
+    if has_batchnorm(train_net):         
+        mean = []
+        var = []
+        bnw = []
+        bnb = []
+        for p in train_net.modules():
+            if isinstance(p, nn.BatchNorm2d):
+                mean.append(p.running_mean)
+                var.append(p.running_var)
+                bnw.append(p.weight)
+                bnb.append(p.bias)
+        
+        torch.save(torch.cat(bnw), args.task_id + '/' + args.save_path +  '/bnw.pt')
+        torch.save(torch.cat(bnb), args.task_id + '/' + args.save_path +  '/bnb.pt')
+        torch.save(torch.cat(mean), args.task_id + '/' + args.save_path +  '/means.pt')
+        torch.save(torch.cat(var), args.task_id + '/' + args.save_path +  '/vars.pt')
+    return
+        
 def test(gpu_ind, args, train_net, testloader):
     train_net.eval()
     cnt = 0
