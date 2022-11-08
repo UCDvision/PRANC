@@ -35,6 +35,7 @@ def main_worker( gpu_ind, args, shared_alpha):
     max_acc = 0
     torch.cuda.set_device(gpu_ind)
     train_net = DDP(train_net, device_ids=[gpu_ind])
+
     if args.method == 'normal':
         if args.resume is not None:
             train_net.load_state_dict(load_model(gpu_ind, args))
@@ -176,6 +177,47 @@ def main_worker( gpu_ind, args, shared_alpha):
             if batchnorm_scheduler is not None:
                 batchnorm_scheduler.step()
         print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
+
+    # if args.method == 'pranc_otf':
+    #     alpha, train_net = pranc_otf_init(gpu_ind, args, train_net)
+    #     if args.lr > 0:
+    #         alpha_optimizer = get_optimizer(args, [alpha], 'pranc')
+    #         net_optimizer = get_optimizer(args, train_net.parameters(), 'network')
+    #         batchnorms = []
+    #         for m in train_net.modules():
+    #             if isinstance(m, nn.BatchNorm2d):
+    #                 for p in m.parameters():
+    #                     batchnorms.append(p)
+    #         if len(batchnorms) > 0:
+    #             batchnorm_optimizer = get_optimizer(args, batchnorms, 'batchnorm')
+    #         else:
+    #             batchnorm_optimizer = None
+    #         alpha_scheduler = get_scheduler(args, alpha_optimizer)
+    #         if batchnorm_optimizer is not None:
+    #             batchnorm_scheduler = get_scheduler(args, batchnorm_optimizer)
+    #         else:
+    #             batchnorm_scheduler = None
+    #     else:
+    #         alpha_scheduler = None
+    #         batchnorm_scheduler = None
+        
+    #     max_acc = gather_all_test(gpu_ind, args, train_net, testloader)
+    #     for e in range(args.epoch):
+    #         pranc_train_single_epoch(gpu_ind, args, e, basis_mat, train_net, train_net_shape_vec, alpha, trainloader, criteria, alpha_optimizer, net_optimizer, batchnorm_optimizer)    
+    #         if e % 1 == 0 :
+    #             test_watchdog.start()
+    #             acc = gather_all_test(gpu_ind, args, train_net, testloader)
+    #             test_watchdog.stop()
+    #             if gpu_ind == 0:
+    #                 print("TEST RESULT:\tAcc:", round(acc, 3), "\tBest Acc:", round(max_acc,3), "\tTime:", test_watchdog.get_time_in_sec(), 'seconds')
+    #             if acc > max_acc:
+    #                 save_model(gpu_ind, args, train_net)
+    #                 save_signature(gpu_ind, args, alpha, train_net, shared_alpha)             
+    #                 max_acc = acc
+    #         alpha_scheduler.step()
+    #         if batchnorm_scheduler is not None:
+    #             batchnorm_scheduler.step()
+    #     print("FINAL TEST RESULT:\tAcc:", round(max_acc, 3))
 
 if __name__ == '__main__':
     number_of_gpus = torch.cuda.device_count()

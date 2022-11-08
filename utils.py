@@ -13,6 +13,12 @@ import torch.distributed as dist
 def prancable(m):
     return isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d)
 
+def has_batchnorm(model):
+    for m in model.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            return True
+    return False
+
 def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):      
     if args.method == 'pranc_bin' or args.method == 'ppb':
         if gpu_ind != 0:
@@ -20,7 +26,7 @@ def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):
         if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
             os.mkdir(args.task_id + '/' + args.save_path)
         torch.save(alpha, args.task_id + '/' + args.save_path + '/alpha.pt')
-        if 'resnet' in args.model:          #TODO: change this line for batchnorm
+        if has_batchnorm(train_net):         
             mean = []
             var = []
             bnw = []
@@ -49,7 +55,7 @@ def save_signature(gpu_ind, args, alpha, train_net, shared_alpha):
     if os.path.isdir(args.task_id + '/' + args.save_path ) is False:
         os.mkdir(args.task_id + '/' + args.save_path)
     torch.save(shared_alpha, args.task_id + '/' + args.save_path + '/alpha.pt')
-    if 'resnet' in args.model:
+    if has_batchnorm(train_net):
         mean = []
         var = []
         bnw = []
@@ -160,7 +166,7 @@ def fill_basis_mat(gpu_ind, args, train_net):
     start = length * gpu_ind
     end = start + length
     this_device = torch.device(gpu_ind)
-    basis_mat = torch.zeros(length, cnt_param, device=this_device, dtype=torch.float16)
+    basis_mat = torch.zeros(length, cnt_param, device=this_device)
     if gpu_ind == 0:
         print("Initializing Basis Matrix:", list(basis_mat.shape))
     for i in tqdm(range(length)):
@@ -198,7 +204,7 @@ def pranc_init(gpu_ind, args, train_net):
     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)
     with torch.no_grad():
         start_ind = 0
-        init_net_weights = torch.matmul(alpha.half(), basis_mat).float()
+        init_net_weights = torch.matmul(alpha, basis_mat).float()
         dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
         for m in train_net.modules():
             if prancable(m):
@@ -206,7 +212,7 @@ def pranc_init(gpu_ind, args, train_net):
                     p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
                     start_ind +=  p.flatten().shape[0]
     if args.resume is not None:     
-        if 'resnet' in args.model:      #TODO: Handle for everything not just resnet
+        if has_batchnorm(train_net):    
             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
             bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
@@ -235,7 +241,7 @@ def get_train_net_grads(train_net, train_net_grad_vec):
         return train_net_grad_vec
 
 def update_train_net(alpha, basis_mat, train_net, train_net_shape_vec):
-    train_net_shape_vec = torch.matmul(alpha.half(), basis_mat).float()
+    train_net_shape_vec = torch.matmul(alpha, basis_mat).float()
     dist.all_reduce(train_net_shape_vec, dist.ReduceOp.SUM, async_op=False)
     with torch.no_grad():
         start_ind = 0
@@ -262,7 +268,7 @@ def pranc_train_single_epoch(gpu_ind, args, epoch, basis_mat, train_net, train_n
         loss = criteria(train_net(imgs), labels)
         loss.backward()
         train_net_shape_vec = get_train_net_grads(train_net, train_net_shape_vec)
-        alpha.grad = torch.matmul(train_net_shape_vec.half(), basis_mat.T).float()
+        alpha.grad = torch.matmul(train_net_shape_vec, basis_mat.T).float()
         alpha_optimizer.step()
         if batchnorm_optimizer is not None:
             batchnorm_optimizer.step()
@@ -314,8 +320,8 @@ def pranc_bin_init(gpu_ind, args, train_net):
                 for p in m.parameters():
                     p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
                     start_ind +=  p.flatten().shape[0]
-    if args.resume is not None:     #Handle for everything not just resnet
-        if 'resnet' in args.model:      
+    if args.resume is not None:    
+        if has_batchnorm(train_net):    
             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
             bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
@@ -421,8 +427,8 @@ def ppb_init(gpu_ind, args, train_net):
                 for p in m.parameters():
                     p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
                     start_ind +=  p.flatten().shape[0]
-    if args.resume is not None:     #Handle for everything not just resnet
-        if 'resnet' in args.model:      
+    if args.resume is not None:    
+        if has_batchnorm(train_net):   
             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
             bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
@@ -469,6 +475,57 @@ def ppb_train_single_epoch(gpu_ind, args, epoch, train_net, train_net_shape_vec,
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "\tIteration:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
+
+# def init_alpha_otf(gpu_ind, args):
+#     if gpu_ind == 0:
+#         print("Initializing Alpha")
+#     length = args.num_alpha // args.world_size
+#     start = length * gpu_ind
+#     end = start + length
+#     if args.resume is not None:
+#         alp = torch.load(args.resume + '/alpha.pt')[start:end]
+#         alp = alp.to(gpu_ind)
+#     else:
+#         alp = torch.zeros(length, requires_grad=True, device=torch.device(gpu_ind))
+#         with torch.no_grad():
+#             if gpu_ind == 0:
+#                 alp[0] = 1.
+#     return alp
+
+# def pranc_otf_init(gpu_ind, args, train_net):
+#     if gpu_ind == 0:
+#         print("Initializing PRANC On the Fly")
+#     alpha = init_alpha_otf(gpu_ind, args)
+#     basis_mat = fill_basis_mat(gpu_ind, args, train_net)
+#     train_net_shape_vec = torch.zeros(basis_mat.shape[1], device=basis_mat.device)
+
+#     with torch.no_grad():
+#         start_ind = 0
+#         init_net_weights = torch.matmul(alpha, basis_mat).float()
+#         dist.all_reduce(init_net_weights, dist.ReduceOp.SUM, async_op=False)
+#         for m in train_net.modules():
+#             if prancable(m):
+#                 for p in m.parameters():
+#                     p.copy_(init_net_weights[start_ind:start_ind + p.flatten().shape[0]].reshape(p.shape))
+#                     start_ind +=  p.flatten().shape[0]
+#     if args.resume is not None:     
+#         if has_batchnorm(train_net):    
+#             means = torch.load(args.resume + '/means.pt', map_location=torch.device(gpu_ind))
+#             vars = torch.load(args.resume + '/vars.pt', map_location = torch.device(gpu_ind))
+#             bn_weight = torch.load(args.resume + '/bnw.pt', map_location=torch.device(gpu_ind))
+#             bn_bias = torch.load(args.resume + '/bnb.pt', map_location=torch.device(gpu_ind))
+#         ind = 0
+#         with torch.no_grad():
+#             for p1 in train_net.modules():
+#                 if isinstance(p1, nn.BatchNorm2d):
+#                     leng = p1.running_var.shape[0]
+#                     p1.weight.copy_(bn_weight[ind:ind + leng])
+#                     p1.bias.copy_(bn_bias[ind:ind + leng])
+#                     p1.running_mean.copy_(means[ind:ind + leng])
+#                     p1.running_var.copy_(vars[ind:ind + leng])
+#                     ind += leng
+#     return alpha, train_net
+
 
 def test(gpu_ind, args, train_net, testloader):
     train_net.eval()
