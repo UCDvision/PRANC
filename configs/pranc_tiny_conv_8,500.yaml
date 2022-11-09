@@ -1,6 +1,6 @@
 name: "PRANC Training of tinyImageNet with ConvNet with single-GPU with 8,500 alpha"
 id: "CONV_TINY_8,500"
-gpus: [1]
+gpus: [0,1]
 port: 8881
 
 pranc:

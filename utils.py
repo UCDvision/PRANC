@@ -534,7 +534,7 @@ def setup_otf_net(gpu_ind, args, alpha_enc, alpha_cls, train_net):
                 else:
                     K = 1
                 N = args.num_alpha_cls
-                for k in range(k):
+                for k in range(K):
                     w += torch.matmul(alpha_cls[0][k * N // K: (k + 1) * N // K], torch.normal(mean=0, std = 0.001, size=(N // K , num_param), device=gpu_ind))
                 s = 0
                 for p in m.parameters():
