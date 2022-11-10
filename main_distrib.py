@@ -44,7 +44,7 @@ def main_worker( gpu_ind, args, shared_alpha):
         scheduler = get_scheduler(args, optimizer)
         for e in range(args.epoch):
             normal_train_single_epoch(gpu_ind, args, e, train_net, trainloader, criteria, optimizer)
-            if e % 10 == 0:
+            if e % 1 == 0:
                 test_watchdog.start()
                 acc = gather_all_test(gpu_ind, args, train_net, testloader)
                 test_watchdog.stop()
