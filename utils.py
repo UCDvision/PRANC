@@ -510,8 +510,8 @@ def setup_otf_net(gpu_ind, args, alpha_enc, alpha_cls, train_net):
                     num_param += p.flatten().shape[0]
                 torch.cuda.manual_seed(i)
                 w = torch.zeros(num_param, device=gpu_ind)
-                if args.num_alpha_enc > 400:
-                    K = args.num_alpha_enc // 400
+                if args.num_alpha_enc > 800:
+                    K = args.num_alpha_enc // 800
                 else:
                     K = 1
                 N = args.num_alpha_enc
@@ -584,8 +584,8 @@ def set_alpha_grads(gpu_ind, args, alpha_encoder, alpha_classifier, train_net):
                 torch.cuda.manual_seed(i)
                 if alpha_encoder.grad == None:
                     alpha_encoder.grad = torch.zeros(alpha_encoder.shape, device= alpha_encoder.device)
-                if args.num_alpha_enc > 400:
-                    K = args.num_alpha_enc // 400
+                if args.num_alpha_enc > 800:
+                    K = args.num_alpha_enc // 800
                 else:
                     K = 1
                 N = args.num_alpha_enc
@@ -629,9 +629,11 @@ def pranc_otf_train_single_epoch(gpu_ind, args, epoch, train_net, alpha_encoder,
         loss.backward()
         set_alpha_grads(gpu_ind, args, alpha_encoder, alpha_classifier, train_net)
         alpha_optimizer.step()
+        time.sleep(0.2)
         if batchnorm_optimizer is not None:
             batchnorm_optimizer.step()
         train_net = setup_otf_net(gpu_ind, args, alpha_encoder, alpha_classifier, train_net)
+        time.sleep(0.2)
         train_watchdog.stop()
         if batch_idx % args.log_rate == 0 and gpu_ind == 0:
             print("Epoch:", epoch, "Iter:", batch_idx, "\tLoss:", round(loss.item(), 4), "\tTime:", train_watchdog.get_time_in_ms(), 'ms')
