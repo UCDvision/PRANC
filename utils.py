@@ -82,7 +82,14 @@ def init_alpha(gpu_ind, args):
     start = length * gpu_ind
     end = start + length
     if args.resume is not None:
-        alp = torch.load(args.resume + '/alpha.pt')[start:end]
+        alp = torch.load(args.resume + '/alpha.pt')
+        # a = torch.topk(torch.abs(alp),20000).indices
+        random.seed(20)
+        a = list(range(20000))
+        random.shuffle(a)
+        mask_size = 19000
+        alp[a[mask_size:]] = torch.zeros(alp.shape[0] - mask_size)
+        alp = alp[start:end]
         alp = alp.to(gpu_ind)
     else:
         alp = torch.zeros(length, requires_grad=True, device=torch.device(gpu_ind))
