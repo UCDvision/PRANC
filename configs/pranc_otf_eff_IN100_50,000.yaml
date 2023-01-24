@@ -1,5 +1,5 @@
-name: "PRANC on the fly Training of ImageNet 100 with EfficientNet with Single-GPU with 80,000 alpha"
-id: "Eff_IMAGENET100_OTF_80,000"
+name: "PRANC on the fly Training of ImageNet 100 with EfficientNet with Single-GPU with 50,000 alpha"
+id: "Eff_IMAGENET100_OTF_50,000"
 gpus: [0,1,2,3]
 port: 8880
 
