@@ -502,6 +502,7 @@ def init_alpha_otf(gpu_ind, args, train_net):
         
         alpha_encoder = torch.randn(num_layer - 1, args.num_alpha_enc, requires_grad=True, device=gpu_ind)
         alpha_classifier = torch.randn(1, args.num_alpha_cls, requires_grad=True, device=gpu_ind)
+        print("Total parameters:", alpha_encoder.flatten().shape[0] + alpha_encoder.flatten().shape[0])
         with torch.no_grad():
             alpha_encoder = F.normalize(alpha_encoder, p=1)
             alpha_classifier = F.normalize(alpha_classifier, p=1)
