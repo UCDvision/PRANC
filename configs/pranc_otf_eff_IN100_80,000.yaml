@@ -1,15 +1,16 @@
-name: "PRANC Training of ImageNet 100 with EfficientNet with Multi-GPU with 53,000 alpha"
-id: "Eff_IMAGENET100_PRANC_53,000"
+name: "PRANC on the fly Training of ImageNet 100 with EfficientNet with Single-GPU with 80,000 alpha"
+id: "Eff_IMAGENET100_OTF_80,000"
 gpus: [0,1,2,3]
 port: 8880
 
 pranc:
   seed: 0 
-  num_alpha: 50000
+  num_alpha_enc: 2000
+  num_alpha_cls: 10000
 
 experiment:
   mode: 'train'   #[train, test]
-  method: 'pranc'   #[normal, pranc, pranc_bin, pranc_otf]
+  method: 'pranc_otf'   #[normal, pranc, pranc_bin, pranc_otf]
   loss: "cross-entropy"   #[cross-entropy, mse]
   lr: 0.001
   optimizer: 'adam'  #[sgd, adam]
@@ -25,7 +26,7 @@ experiment:
   # load_model: '<TASK_ID>/pranc' #for pranc testing
   # load_model: '<TASK_ID>/best_model.pt' #for normal testing 
   task: 'imagenet100' #[mnist, cifar10, cifar100, tiny, imagenet, imagenet100]
-  model_arch: 'efficient'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
+  model_arch: 'resnet18'  #[lenet, resnet18, resnet20, resnet56, alexnet, convnet]
 
 dataset:
   image_width: 256 # set 28 for mnist, 32 for cifar, 64 tiny, 256 for imagenet
